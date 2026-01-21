@@ -1,0 +1,10 @@
+[client]
+showSidebarNavigation = true
+
+[logger]
+level = "error"
+
+[server]
+port = 8501
+headless = true
+runOnSave = true

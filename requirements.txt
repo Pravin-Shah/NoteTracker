@@ -1,0 +1,17 @@
+streamlit
+python-dotenv
+pandas
+pillow
+python-dateutil
+pytz
+apscheduler
+python-telegram-bot
+reportlab
+pydantic
+requests
+google-auth
+pyjwt
+cryptography
+fastapi
+uvicorn
+python-multipart

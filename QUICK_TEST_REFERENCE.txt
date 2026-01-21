@@ -1,0 +1,364 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                  NoteTracker - Quick Test Reference                         ║
+║                     Phase 5: Comprehensive Testing                          ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+QUICK START
+═══════════════════════════════════════════════════════════════════════════
+
+Run All Tests:
+    python run_tests.py all
+
+Run Unit Tests Only:
+    python run_tests.py unit
+
+Run Integration Tests:
+    python run_tests.py integration
+
+Run with Coverage:
+    python run_tests.py coverage
+
+───────────────────────────────────────────────────────────────────────────
+
+TEST RUNNER COMMANDS
+═══════════════════════════════════════════════════════════════════════════
+
+Usage: python run_tests.py [COMMAND] [OPTIONS]
+
+Commands:
+  all             Run all tests (unit + integration)
+  unit            Run only unit tests
+  integration     Run only integration tests
+  coverage        Run all tests with coverage analysis
+  smoke           Run quick sanity checks
+  specific FILE   Run a specific test file
+  module NAME     Run tests for a specific module
+  help            Display help message
+
+Options:
+  -q, --quiet     Suppress verbose output
+  -h, --help      Display help message
+
+Examples:
+  python run_tests.py all
+  python run_tests.py unit -q
+  python run_tests.py coverage
+  python run_tests.py specific unit/test_note_ops.py
+  python run_tests.py module note_ops
+
+───────────────────────────────────────────────────────────────────────────
+
+DIRECT PYTEST USAGE
+═══════════════════════════════════════════════════════════════════════════
+
+Run All Tests:
+  pytest tests/ -v
+
+Unit Tests Only:
+  pytest tests/unit/ -v
+
+Integration Tests:
+  pytest tests/integration/ -v
+
+Specific Test File:
+  pytest tests/unit/test_note_ops.py -v
+
+Specific Test Class:
+  pytest tests/unit/test_note_ops.py::TestNoteCreation -v
+
+Specific Test Function:
+  pytest tests/unit/test_note_ops.py::TestNoteCreation::test_create_note_valid_data -v
+
+With Coverage:
+  pytest tests/ --cov=apps --cov=core --cov-report=html --cov-report=term
+
+Stop on First Failure:
+  pytest tests/ -x
+
+Show Print Statements:
+  pytest tests/ -s
+
+Match Pattern:
+  pytest tests/ -k "search" -v
+
+By Marker:
+  pytest tests/ -m "unit" -v          # Only unit tests
+  pytest tests/ -m "database" -v      # Only database tests
+  pytest tests/ -m "not slow" -v      # Skip slow tests
+
+───────────────────────────────────────────────────────────────────────────
+
+TEST FILES OVERVIEW
+═══════════════════════════════════════════════════════════════════════════
+
+Unit Tests (~520 tests):
+  ✓ test_note_ops.py (48 tests) - Note CRUD, tags, search
+  ✓ test_task_ops.py (50 tests) - Task CRUD, status, reminders
+  ✓ test_calendar_ops.py (40 tests) - Events, dates, conflicts
+  ✓ test_search_general.py (40 tests) - Cross-app search
+  ✓ test_edge_ops.py (50 tests) - Edge CRUD, performance
+  ✓ test_prompt_ops.py (45 tests) - Prompts, versioning
+  ✓ test_insight_ops.py (45 tests) - Insights, status, confidence
+  ✓ test_analytics.py (40 tests) - Portfolio metrics, trends
+  ✓ test_search_tradevault.py (40 tests) - Advanced search
+
+Integration Tests (~80 tests):
+  ✓ test_ui_backend_integration.py (80 tests) - Complete workflows
+
+Configuration:
+  ✓ conftest.py - Shared fixtures and configuration
+  ✓ pytest.ini - Pytest settings
+  ✓ run_tests.py - Test runner script
+
+───────────────────────────────────────────────────────────────────────────
+
+COMMON WORKFLOWS
+═══════════════════════════════════════════════════════════════════════════
+
+Before Committing:
+  python run_tests.py all
+
+Quick Check (Smoke Tests):
+  python run_tests.py smoke
+
+Check Specific Feature:
+  python run_tests.py module note_ops
+
+Generate Coverage Report:
+  python run_tests.py coverage
+
+Debug Failing Test:
+  pytest tests/unit/test_note_ops.py::TestNoteCreation::test_create_note_valid_data -v -s
+
+Run Tests Continuously (with pytest-watch):
+  ptw tests/ -v
+
+───────────────────────────────────────────────────────────────────────────
+
+TEST STATISTICS
+═══════════════════════════════════════════════════════════════════════════
+
+Total Tests:              600+
+Unit Tests:              ~520
+Integration Tests:        ~80
+Test Classes:             80+
+Test Methods:            600+
+Test Files:               12
+Lines of Test Code:     5000+
+Fixtures:                15+
+
+Expected Execution Time:  ~2-3 minutes (all tests)
+Expected Coverage:        >85%
+
+───────────────────────────────────────────────────────────────────────────
+
+COVERAGE REPORTS
+═══════════════════════════════════════════════════════════════════════════
+
+Generate HTML Coverage Report:
+  python run_tests.py coverage
+  # Reports generated in: test_reports/
+
+View Coverage Report:
+  # Open: test_reports/coverage_html/index.html
+
+Check Coverage by Module:
+  pytest tests/ --cov=apps --cov-report=term
+
+Generate XML Coverage (for CI/CD):
+  pytest tests/ --cov=apps --cov=core --cov-report=xml
+
+───────────────────────────────────────────────────────────────────────────
+
+FIXTURES
+═══════════════════════════════════════════════════════════════════════════
+
+Database:
+  test_db_path - Session-scoped temporary database
+  fresh_db - Function-scoped fresh database (autouse)
+
+Users:
+  test_user - Primary test user (id, username, email, password)
+  test_user2 - Secondary test user for isolation testing
+
+Sample Data:
+  sample_note_data - Sample note with title, content, category
+  sample_task_data - Sample task with title, priority, due_date
+  sample_event_data - Sample event with title, dates
+  sample_edge_data - Sample trading edge with performance metrics
+  sample_prompt_data - Sample prompt template
+  sample_insight_data - Sample market insight
+  sample_reminder_data - Sample reminder configuration
+
+Example Usage in Test:
+  def test_create_note(self, test_user, sample_note_data, test_db_path):
+      note_id = create_note(test_user['id'], sample_note_data, test_db_path)
+      assert note_id > 0
+
+───────────────────────────────────────────────────────────────────────────
+
+PYTEST MARKERS
+═══════════════════════════════════════════════════════════════════════════
+
+Available Markers:
+  @pytest.mark.unit - Unit tests (fast, isolated)
+  @pytest.mark.integration - Integration tests
+  @pytest.mark.database - Tests requiring database
+  @pytest.mark.slow - Slow running tests
+
+Usage:
+  pytest tests/ -m "unit" -v              # Only unit tests
+  pytest tests/ -m "integration" -v       # Only integration tests
+  pytest tests/ -m "not slow" -v          # Skip slow tests
+  pytest tests/ -m "database" -v          # Only database tests
+
+───────────────────────────────────────────────────────────────────────────
+
+TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════════════════
+
+Database Locked Error:
+  rm -rf tests/tmp_*
+  python run_tests.py all
+
+Import Errors:
+  export PYTHONPATH="${PYTHONPATH}:$(pwd)"  # Linux/macOS
+  set PYTHONPATH=%PYTHONPATH%;%cd%          # Windows
+  python run_tests.py all
+
+Fixture Not Found:
+  - Verify conftest.py is in tests/ directory
+  - Ensure fixture names match exactly
+
+Tests Running Slowly:
+  python run_tests.py smoke                 # Quick checks only
+  pytest tests/ -m "not slow" -v
+
+Fresh Database:
+  rm -rf tests/tmp_*
+  rm -f tests/unit/test_*.db
+  python run_tests.py all
+
+───────────────────────────────────────────────────────────────────────────
+
+CONTINUOUS INTEGRATION
+═══════════════════════════════════════════════════════════════════════════
+
+GitHub Actions:
+  - Runs on push to main/develop
+  - Runs on pull requests
+  - Tests on: Ubuntu, Windows, macOS
+  - Python versions: 3.9, 3.10, 3.11
+  - Code quality checks
+  - Coverage upload to Codecov
+
+Configuration File:
+  .github/workflows/tests.yml
+
+View Results:
+  https://github.com/user/NoteTracker/actions
+
+───────────────────────────────────────────────────────────────────────────
+
+REPORTS
+═══════════════════════════════════════════════════════════════════════════
+
+Test Reports:
+  test_reports/unit_tests.html - Unit test results
+  test_reports/integration_tests.html - Integration test results
+  test_reports/all_tests.html - All test results
+  test_reports/all_tests_coverage.html - Tests with coverage
+
+Coverage Reports:
+  test_reports/coverage_html/ - HTML coverage report
+  test_reports/coverage_html/index.html - Main coverage page
+
+Artifacts:
+  Generated after running: python run_tests.py coverage
+
+───────────────────────────────────────────────────────────────────────────
+
+DOCUMENTATION
+═══════════════════════════════════════════════════════════════════════════
+
+Main Guides:
+  TESTING_GUIDE.md - Comprehensive testing documentation
+  PHASE5_COMPLETE.md - Phase 5 completion report
+  QUICK_TEST_REFERENCE.txt - This file (quick reference)
+
+Configuration Files:
+  pytest.ini - Pytest configuration
+  .github/workflows/tests.yml - CI/CD pipeline
+  run_tests.py - Test runner script
+
+───────────────────────────────────────────────────────────────────────────
+
+QUICK HELP
+═══════════════════════════════════════════════════════════════════════════
+
+Help for Test Runner:
+  python run_tests.py help
+
+Help for Pytest:
+  pytest --help
+
+Help for Coverage:
+  pytest --cov-help
+
+Help for Specific Marker:
+  pytest --markers
+
+───────────────────────────────────────────────────────────────────────────
+
+KEY STATISTICS
+═══════════════════════════════════════════════════════════════════════════
+
+Test Breakdown:
+  General App Tests ........... 178 tests
+  TradeVault Tests ............ 260 tests
+  Integration Tests ...........  80 tests
+  Core Infrastructure Tests ... 82 tests (Phase 1)
+  ────────────────────────────
+  Total ........................ 600+ tests
+
+Coverage Goals:
+  Overall ..................... >85%
+  Core Modules ................ >95%
+  Business Logic .............. >90%
+
+Execution Time:
+  Unit Tests .................. ~2 minutes
+  Integration Tests ........... ~1 minute
+  Total ....................... ~3 minutes (with coverage)
+
+───────────────────────────────────────────────────────────────────────────
+
+STATUS
+═══════════════════════════════════════════════════════════════════════════
+
+✅ Phase 5: Comprehensive Testing - COMPLETE
+
+What's Ready:
+  ✓ 600+ automated tests
+  ✓ Pytest fixtures system
+  ✓ Test runner script
+  ✓ CI/CD pipeline
+  ✓ Coverage analysis
+  ✓ Multi-OS/Python support
+  ✓ Comprehensive documentation
+
+Ready For:
+  ✓ Unit test execution
+  ✓ Integration test verification
+  ✓ Coverage analysis
+  ✓ CI/CD deployment
+  ✓ Production readiness assessment
+
+───────────────────────────────────────────────────────────────────────────
+
+Created: 2026-01-12
+Status: Phase 5 COMPLETE
+Next: Phase 6 - Test Execution & Validation
+
+🚀 Run tests now: python run_tests.py all
+═══════════════════════════════════════════════════════════════════════════
