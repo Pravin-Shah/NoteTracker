@@ -213,14 +213,76 @@ chmod -R 755 ~/notetracker/frontend/dist
 
 ## Backup
 
-### Backup database
+### Automatic Daily Backups (Already Configured)
+
+The server has an automatic backup system configured via cron that runs daily at 2 AM UTC.
+
+**Backup Script Location**: `~/backup_db.sh`
+
+**Backup Directory**: `~/backups/`
+
+**Retention Policy**: Last 7 days of backups are kept (older backups auto-deleted)
+
+### Check Existing Backups
 ```bash
-cp ~/notetracker/data/shared_database.db ~/backups/shared_database_$(date +%Y%m%d).db
+ls -la ~/backups/
 ```
 
-### Backup uploads
+### View Backup Logs
+```bash
+cat ~/backups/backup.log
+```
+
+### Manual Backup (Run Anytime)
+```bash
+# Run the backup script manually
+~/backup_db.sh
+
+# Or copy with custom timestamp
+cp ~/notetracker/data/shared_database.db ~/backups/shared_database_$(date +%Y-%m-%d_%H%M).db
+```
+
+### Backup uploads (manual)
 ```bash
 tar -czf ~/backups/uploads_$(date +%Y%m%d).tar.gz ~/notetracker/data/uploads/
+```
+
+### Restore from Backup
+```bash
+# Stop the backend first
+pkill -f uvicorn
+
+# Copy backup to database location
+cp ~/backups/shared_database_YYYY-MM-DD_HHMM.db ~/notetracker/data/shared_database.db
+
+# Restart the backend
+cd ~/notetracker && source venv/bin/activate
+nohup python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 > uvicorn.log 2>&1 &
+```
+
+### Cron Job Configuration (Reference)
+The backup cron job is already set up. To view or modify:
+```bash
+# View current cron jobs
+crontab -l
+
+# Edit cron jobs (if needed)
+crontab -e
+
+# Current schedule: 0 2 * * * (daily at 2 AM UTC)
+```
+
+### Backup Script Contents (Reference)
+```bash
+#!/bin/bash
+# ~/backup_db.sh
+BACKUP_DIR="/home/ubuntu/backups"
+DB_PATH="/home/ubuntu/notetracker/data/shared_database.db"
+DATE=$(date +%Y-%m-%d_%H%M)
+
+cp "$DB_PATH" "$BACKUP_DIR/shared_database_$DATE.db"
+find "$BACKUP_DIR" -name "shared_database_*.db" -mtime +7 -delete
+echo "[$(date)] Backup completed: shared_database_$DATE.db"
 ```
 
 ---
