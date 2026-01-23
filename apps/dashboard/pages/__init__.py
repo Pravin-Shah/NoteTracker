@@ -1,3 +1,0 @@
-"""
-Pages for Dashboard App
-"""
