@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Sidebar from './Sidebar';
 import NotesFeed from './NotesFeed';
 import NoteEditor from './NoteEditor';
+import DailyTracker from '../habits/DailyTracker';
 
 export default function NotesLayout() {
     const [selectedNoteId, setSelectedNoteId] = useState<number | null>(null);
@@ -51,6 +52,9 @@ export default function NotesLayout() {
         setSelectedFolder('all');
     };
 
+    // Check if we should show the Daily Tracker
+    const showDailyTracker = selectedFolder === 'daily-tracker' || selectedFolder === 'health-log';
+
     return (
         <div className="flex h-screen bg-[#121212] text-white overflow-hidden">
             {/* A. Left Pane - Sidebar */}
@@ -64,25 +68,33 @@ export default function NotesLayout() {
                 onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             />
 
-            {/* B. Feed - Notes List (~320px) */}
-            <NotesFeed
-                selectedFolder={selectedFolder}
-                selectedTag={selectedTag}
-                selectedNoteId={selectedNoteId}
-                onNoteSelect={handleNoteSelect}
-            />
+            {/* Conditional rendering based on selectedFolder */}
+            {showDailyTracker ? (
+                <DailyTracker initialTab={selectedFolder === 'health-log' ? 'reports' : 'today'} />
+            ) : (
+                <>
+                    {/* B. Feed - Notes List (~320px) */}
+                    <NotesFeed
+                        selectedFolder={selectedFolder}
+                        selectedTag={selectedTag}
+                        selectedNoteId={selectedNoteId}
+                        onNoteSelect={handleNoteSelect}
+                    />
 
-            {/* C. Editor - Note Content (remaining width) */}
-            <NoteEditor
-                noteId={selectedNoteId}
-                isEditing={isEditing}
-                onEditToggle={() => setIsEditing(!isEditing)}
-                onNoteCreated={handleNoteCreated}
-                onNoteDeleted={handleNoteDeleted}
-                initialTags={initialTags}
-                onNewNoteWithTags={handleNewNoteWithTags}
-                onLinkClick={handleNoteSelect}
-            />
+                    {/* C. Editor - Note Content (remaining width) */}
+                    <NoteEditor
+                        noteId={selectedNoteId}
+                        isEditing={isEditing}
+                        onEditToggle={() => setIsEditing(!isEditing)}
+                        onNoteCreated={handleNoteCreated}
+                        onNoteDeleted={handleNoteDeleted}
+                        initialTags={initialTags}
+                        onNewNoteWithTags={handleNewNoteWithTags}
+                        onLinkClick={handleNoteSelect}
+                    />
+                </>
+            )}
         </div>
     );
 }
+
