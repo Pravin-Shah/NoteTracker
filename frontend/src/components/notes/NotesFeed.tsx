@@ -81,8 +81,10 @@ export default function NotesFeed({
                 ) : (
                     <div className="px-2 pb-2 flex flex-col" style={{ gap: '0.75rem' }}>
                         {notes.map((note) => {
-                            const hasImages = note.attachments && note.attachments.length > 0;
-                            const thumbnail = hasImages ? note.attachments[0] : null;
+                            const hasAttachments = note.attachments && note.attachments.length > 0;
+                            // Prefer image attachment for thumbnail, fall back to first attachment
+                            const imageAttachment = note.attachments?.find(a => a.file_type === 'image');
+                            const thumbnail = imageAttachment || (hasAttachments ? note.attachments[0] : null);
                             const isSelected = note.id === selectedNoteId;
 
                             return (
@@ -98,12 +100,21 @@ export default function NotesFeed({
                                     <div className="flex gap-2.5">
                                         {/* Thumbnail or Placeholder */}
                                         <div className="flex-shrink-0 w-11 h-11 rounded-md overflow-hidden bg-gray-700 flex items-center justify-center">
-                                            {thumbnail ? (
+                                            {thumbnail && thumbnail.file_type === 'image' ? (
                                                 <img
                                                     src={`/uploads/${thumbnail.file_path}`}
                                                     alt=""
                                                     className="w-full h-full object-cover"
+                                                    onError={(e) => {
+                                                        const target = e.target as HTMLImageElement;
+                                                        target.style.display = 'none';
+                                                    }}
                                                 />
+                                            ) : hasAttachments ? (
+                                                /* Has attachments but first one is not an image - show file icon */
+                                                <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                </svg>
                                             ) : (
                                                 <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -128,7 +139,7 @@ export default function NotesFeed({
 
                                             {/* Preview Text */}
                                             <p className="text-[12px] text-gray-500 line-clamp-2 leading-snug">
-                                                {note.content || 'No content'}
+                                                {note.content ? note.content.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ') : 'No content'}
                                             </p>
 
                                             {/* Tags */}

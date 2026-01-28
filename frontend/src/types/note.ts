@@ -2,6 +2,8 @@ export interface Attachment {
   id: number;
   file_path: string;
   file_type: string | null;
+  original_filename?: string | null;
+  file_size?: number | null;
   upload_date: string | null;
 }
 

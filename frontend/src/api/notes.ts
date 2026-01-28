@@ -77,7 +77,21 @@ export const notesApi = {
   // Upload attachment (image/file)
   async uploadAttachment(noteId: number, file: File | Blob, filename?: string): Promise<Attachment> {
     const formData = new FormData();
-    formData.append('file', file, filename || 'image.png');
+
+    // Determine the actual filename to use
+    let actualFilename: string;
+    if (filename) {
+      actualFilename = filename;
+    } else if (file instanceof File) {
+      // Use the actual filename from the File object
+      actualFilename = file.name;
+    } else {
+      // For Blob objects (e.g., pasted images), generate a name based on type
+      const ext = file.type.split('/')[1] || 'png';
+      actualFilename = `pasted_${Date.now()}.${ext}`;
+    }
+
+    formData.append('file', file, actualFilename);
 
     const response = await api.post<Attachment>(
       `/api/notes/${noteId}/attachments`,

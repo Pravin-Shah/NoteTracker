@@ -2,7 +2,10 @@ import { useState, useRef, useEffect } from 'react';
 import { useNote } from '../../hooks/useNotes';
 import { notesApi } from '../../api/notes';
 import ImageGallery from './ImageGallery';
+import FileAttachment from './FileAttachment';
 import { useQueryClient } from '@tanstack/react-query';
+import RichTextEditor from './RichTextEditor';
+import './tiptap.css';
 
 interface NoteEditorProps {
     noteId: number | null;
@@ -12,10 +15,9 @@ interface NoteEditorProps {
     onNoteDeleted?: () => void;
     initialTags?: string[];
     onNewNoteWithTags?: (tags: string[]) => void;
-    onLinkClick?: (noteId: number) => void;
 }
 
-export default function NoteEditor({ noteId, isEditing, onEditToggle, onNoteCreated, onNoteDeleted, initialTags = [], onNewNoteWithTags, onLinkClick }: NoteEditorProps) {
+export default function NoteEditor({ noteId, isEditing, onEditToggle, onNoteCreated, onNoteDeleted, initialTags = [], onNewNoteWithTags }: NoteEditorProps) {
     const queryClient = useQueryClient();
     const { data: note, isLoading } = useNote(noteId);
     const isCreating = !noteId && isEditing;
@@ -58,47 +60,7 @@ export default function NoteEditor({ noteId, isEditing, onEditToggle, onNoteCrea
         }
     };
 
-    // Parse content and render [[Title|ID]] as clickable links
-    const renderContentWithLinks = (text: string) => {
-        if (!text) return 'No content';
 
-        // Regex to match [[Title|ID]] pattern - using non-greedy match
-        const linkRegex = /\[\[(.+?)\|(\d+)\]\]/g;
-        const parts: (string | React.ReactElement)[] = [];
-        let lastIndex = 0;
-        let match;
-
-        while ((match = linkRegex.exec(text)) !== null) {
-            // Add text before the match
-            if (match.index > lastIndex) {
-                parts.push(text.slice(lastIndex, match.index));
-            }
-
-            const linkTitle = match[1];
-            const linkId = parseInt(match[2], 10);
-
-            // Add clickable link
-            parts.push(
-                <button
-                    key={`link-${match.index}`}
-                    onClick={() => onLinkClick?.(linkId)}
-                    className="text-blue-400 hover:text-blue-300 hover:underline cursor-pointer inline"
-                    type="button"
-                >
-                    {linkTitle}
-                </button>
-            );
-
-            lastIndex = match.index + match[0].length;
-        }
-
-        // Add remaining text
-        if (lastIndex < text.length) {
-            parts.push(text.slice(lastIndex));
-        }
-
-        return parts.length > 0 ? parts : text;
-    };
 
     const handleAddTag = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if ((e.key === 'Enter' || e.key === ',') && tagInput.trim()) {
@@ -467,15 +429,17 @@ export default function NoteEditor({ noteId, isEditing, onEditToggle, onNoteCrea
                                 </div>
                             </div>
 
-                            {/* Content Textarea */}
-                            <textarea
-                                value={content}
-                                onChange={(e) => setContent(e.target.value)}
-                                className="w-full min-h-[300px] bg-transparent text-[14px] text-gray-300 leading-relaxed border-none outline-none placeholder-gray-600 resize-none"
-                                placeholder="Start writing... (Paste images with Ctrl+V)"
-                            />
+                            {/* Content Editor */}
+                            <div className="text-gray-900 bg-white rounded-lg overflow-hidden" style={{ minHeight: '300px' }}>
+                                <RichTextEditor
+                                    key={isCreating ? 'new-note' : noteId}
+                                    content={content}
+                                    onChange={setContent}
+                                    placeholder="Start writing..."
+                                />
+                            </div>
 
-                            {/* Images Section */}
+                            {/* Attachments Section */}
                             {hasImages && note && (
                                 <div className="border-t border-gray-700" style={{ marginTop: '1.5rem', paddingTop: '0.75rem' }}>
                                     <div className="flex items-center gap-2" style={{ marginBottom: '1.5rem' }}>
@@ -484,35 +448,106 @@ export default function NoteEditor({ noteId, isEditing, onEditToggle, onNoteCrea
                                             <span className="text-[11px] text-blue-400">Uploading...</span>
                                         )}
                                     </div>
-                                    <div className="grid grid-cols-4 gap-2">
-                                        {note.attachments.map((attachment) => (
-                                            <div key={attachment.id} className="relative group">
-                                                <img
-                                                    src={`/uploads/${attachment.file_path}`}
-                                                    alt=""
-                                                    className="w-full h-24 object-cover rounded cursor-pointer"
-                                                    onClick={() => setShowGallery(true)}
-                                                />
-                                                <button
-                                                    onClick={async () => {
-                                                        if (confirm('Delete this image?')) {
-                                                            try {
-                                                                await notesApi.deleteAttachment(note.id, attachment.id);
-                                                                await queryClient.invalidateQueries({ queryKey: ['notes', 'detail', noteId] });
-                                                            } catch (error) {
-                                                                console.error('Failed to delete image:', error);
-                                                            }
-                                                        }
-                                                    }}
-                                                    className="absolute top-1 right-1 bg-red-500/90 text-white rounded w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                                                >
-                                                    x
-                                                </button>
+
+                                    {/* Images Grid */}
+                                    {note.attachments.filter(a => a.file_type === 'image').length > 0 && (
+                                        <div className="mb-4">
+                                            <h4 className="text-[12px] text-gray-500 mb-2">Images</h4>
+                                            <div className="grid grid-cols-4 gap-2">
+                                                {note.attachments.filter(a => a.file_type === 'image').map((attachment) => (
+                                                    <div key={attachment.id} className="relative group">
+                                                        <img
+                                                            src={`/uploads/${attachment.file_path}`}
+                                                            alt=""
+                                                            className="w-full h-24 object-cover rounded cursor-pointer"
+                                                            onClick={() => setShowGallery(true)}
+                                                            onError={(e) => {
+                                                                const target = e.target as HTMLImageElement;
+                                                                target.style.display = 'none';
+                                                                target.parentElement?.classList.add('bg-gray-700', 'flex', 'items-center', 'justify-center');
+                                                                const icon = document.createElement('span');
+                                                                icon.textContent = '🖼️';
+                                                                icon.className = 'text-2xl';
+                                                                target.parentElement?.appendChild(icon);
+                                                            }}
+                                                        />
+                                                        {/* Action buttons overlay */}
+                                                        <div className="absolute bottom-1 left-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    window.open(`/uploads/${attachment.file_path}`, '_blank');
+                                                                }}
+                                                                className="flex-1 px-2 py-1 bg-blue-600/90 hover:bg-blue-500 text-white text-[10px] rounded transition-colors"
+                                                                title="Open image"
+                                                            >
+                                                                Open
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const link = document.createElement('a');
+                                                                    link.href = `/uploads/${attachment.file_path}`;
+                                                                    link.download = attachment.original_filename || attachment.file_path;
+                                                                    document.body.appendChild(link);
+                                                                    link.click();
+                                                                    document.body.removeChild(link);
+                                                                }}
+                                                                className="px-2 py-1 bg-gray-600/90 hover:bg-gray-500 text-white text-[10px] rounded transition-colors"
+                                                                title="Download"
+                                                            >
+                                                                ↓
+                                                            </button>
+                                                        </div>
+                                                        <button
+                                                            onClick={async () => {
+                                                                if (confirm('Delete this image?')) {
+                                                                    try {
+                                                                        await notesApi.deleteAttachment(note.id, attachment.id);
+                                                                        await queryClient.invalidateQueries({ queryKey: ['notes', 'detail', noteId] });
+                                                                    } catch (error) {
+                                                                        console.error('Failed to delete image:', error);
+                                                                    }
+                                                                }
+                                                            }}
+                                                            className="absolute top-1 right-1 bg-red-500/90 text-white rounded w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                                        >
+                                                            ×
+                                                        </button>
+                                                    </div>
+                                                ))}
                                             </div>
-                                        ))}
-                                    </div>
+                                        </div>
+                                    )}
+
+                                    {/* Files List */}
+                                    {note.attachments.filter(a => a.file_type !== 'image').length > 0 && (
+                                        <div>
+                                            <h4 className="text-[12px] text-gray-500 mb-2">Files</h4>
+                                            <div className="space-y-2">
+                                                {note.attachments.filter(a => a.file_type !== 'image').map((attachment) => (
+                                                    <FileAttachment
+                                                        key={attachment.id}
+                                                        attachment={attachment}
+                                                        showDelete={true}
+                                                        onDelete={async () => {
+                                                            if (confirm('Delete this file?')) {
+                                                                try {
+                                                                    await notesApi.deleteAttachment(note.id, attachment.id);
+                                                                    await queryClient.invalidateQueries({ queryKey: ['notes', 'detail', noteId] });
+                                                                } catch (error) {
+                                                                    console.error('Failed to delete file:', error);
+                                                                }
+                                                            }
+                                                        }}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
+
 
                             {/* Action Buttons */}
                             <div className="flex items-center gap-3 border-t border-gray-700" style={{ marginTop: '0.5rem', paddingTop: '1rem' }}>
@@ -521,7 +556,7 @@ export default function NoteEditor({ noteId, isEditing, onEditToggle, onNoteCrea
                                         <input
                                             ref={fileInputRef}
                                             type="file"
-                                            accept="image/*"
+                                            accept="*/*"
                                             multiple
                                             onChange={handleImageUpload}
                                             className="hidden"
@@ -531,7 +566,7 @@ export default function NoteEditor({ noteId, isEditing, onEditToggle, onNoteCrea
                                             disabled={isUploading}
                                             className="px-3 py-1.5 bg-[#2a2a2a] hover:bg-[#333] text-gray-300 text-[12px] border border-gray-700 rounded transition-colors disabled:opacity-50"
                                         >
-                                            Upload Images
+                                            Upload Files
                                         </button>
                                     </>
                                 )}
@@ -565,27 +600,90 @@ export default function NoteEditor({ noteId, isEditing, onEditToggle, onNoteCrea
                             </div>
 
                             {/* Content */}
-                            <div className="prose prose-invert max-w-none py-4">
-                                <p className="text-[15px] text-gray-300 leading-relaxed whitespace-pre-wrap">
-                                    {renderContentWithLinks(note.content)}
-                                </p>
+                            <div className="py-4">
+                                <RichTextEditor
+                                    content={note.content}
+                                    onChange={() => { }}
+                                    editable={false}
+                                />
                             </div>
 
-                            {/* Images */}
+                            {/* Attachments */}
                             {hasImages && (
                                 <div className="border-t border-gray-700" style={{ marginTop: '1.5rem', paddingTop: '0.75rem' }}>
                                     <h3 className="text-[13px] font-medium text-gray-400 uppercase tracking-wider" style={{ marginBottom: '1.5rem' }}>Attachments</h3>
-                                    <div className="grid grid-cols-3 gap-4">
-                                        {note.attachments.map((attachment) => (
-                                            <img
-                                                key={attachment.id}
-                                                src={`/uploads/${attachment.file_path}`}
-                                                alt=""
-                                                className="w-full h-44 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                                                onClick={() => setShowGallery(true)}
-                                            />
-                                        ))}
-                                    </div>
+
+                                    {/* Images Grid */}
+                                    {note.attachments.filter(a => a.file_type === 'image').length > 0 && (
+                                        <div className="mb-4">
+                                            <h4 className="text-[12px] text-gray-500 mb-2">Images</h4>
+                                            <div className="grid grid-cols-3 gap-4">
+                                                {note.attachments.filter(a => a.file_type === 'image').map((attachment) => (
+                                                    <div key={attachment.id} className="relative group">
+                                                        <img
+                                                            src={`/uploads/${attachment.file_path}`}
+                                                            alt=""
+                                                            className="w-full h-44 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                                            onClick={() => setShowGallery(true)}
+                                                            onError={(e) => {
+                                                                const target = e.target as HTMLImageElement;
+                                                                target.style.display = 'none';
+                                                                target.parentElement?.classList.add('bg-gray-700', 'flex', 'items-center', 'justify-center', 'h-44', 'rounded-lg');
+                                                                const icon = document.createElement('span');
+                                                                icon.textContent = '🖼️';
+                                                                icon.className = 'text-4xl';
+                                                                target.parentElement?.appendChild(icon);
+                                                            }}
+                                                        />
+                                                        {/* Action buttons overlay */}
+                                                        <div className="absolute bottom-2 left-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    window.open(`/uploads/${attachment.file_path}`, '_blank');
+                                                                }}
+                                                                className="flex-1 px-3 py-1.5 bg-blue-600/90 hover:bg-blue-500 text-white text-xs rounded transition-colors"
+                                                                title="Open image"
+                                                            >
+                                                                Open
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const link = document.createElement('a');
+                                                                    link.href = `/uploads/${attachment.file_path}`;
+                                                                    link.download = attachment.original_filename || attachment.file_path;
+                                                                    document.body.appendChild(link);
+                                                                    link.click();
+                                                                    document.body.removeChild(link);
+                                                                }}
+                                                                className="px-3 py-1.5 bg-gray-600/90 hover:bg-gray-500 text-white text-xs rounded transition-colors"
+                                                                title="Download"
+                                                            >
+                                                                ↓
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Files List */}
+                                    {note.attachments.filter(a => a.file_type !== 'image').length > 0 && (
+                                        <div>
+                                            <h4 className="text-[12px] text-gray-500 mb-2">Files</h4>
+                                            <div className="space-y-2">
+                                                {note.attachments.filter(a => a.file_type !== 'image').map((attachment) => (
+                                                    <FileAttachment
+                                                        key={attachment.id}
+                                                        attachment={attachment}
+                                                        showDelete={false}
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

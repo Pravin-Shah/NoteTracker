@@ -90,7 +90,6 @@ export default function NotesLayout() {
                         onNoteDeleted={handleNoteDeleted}
                         initialTags={initialTags}
                         onNewNoteWithTags={handleNewNoteWithTags}
-                        onLinkClick={handleNoteSelect}
                     />
                 </>
             )}

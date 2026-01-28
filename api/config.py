@@ -32,7 +32,20 @@ else:
 # File uploads
 UPLOADS_DIR = DATA_DIR / "uploads"
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
-ALLOWED_FILE_TYPES = {'jpg', 'jpeg', 'png', 'gif', 'pdf', 'doc', 'docx'}
+ALLOWED_FILE_TYPES = {
+    # Images
+    'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp',
+    # Documents
+    'pdf', 'doc', 'docx', 'txt', 'rtf', 'odt',
+    # Spreadsheets
+    'xls', 'xlsx', 'csv', 'ods',
+    # Presentations
+    'ppt', 'pptx', 'odp',
+    # Archives
+    'zip', 'rar', '7z', 'tar', 'gz',
+    # Code
+    'py', 'js', 'html', 'css', 'json', 'xml', 'md'
+}
 
 # Default user (single-user mode for now)
 DEFAULT_USER_ID = 1

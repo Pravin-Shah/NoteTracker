@@ -7,6 +7,7 @@ from typing import Optional, List
 from datetime import datetime
 import uuid
 import os
+import sqlite3
 
 from api.models.note import (
     NoteCreate, NoteUpdate, NoteResponse, NoteListResponse,
@@ -33,7 +34,8 @@ def get_note_tags(note_id: int) -> List[str]:
 def get_note_attachments(note_id: int) -> List[dict]:
     """Get attachments for a note."""
     results = execute_query(
-        "SELECT id, file_path, file_type, upload_date FROM gen_note_attachments WHERE note_id = ?",
+        """SELECT id, file_path, file_type, original_filename, file_size, upload_date 
+           FROM gen_note_attachments WHERE note_id = ?""",
         (note_id,)
     )
     return results
@@ -391,20 +393,23 @@ async def upload_attachment(note_id: int, file: UploadFile = File(...), current_
         raise HTTPException(status_code=404, detail="Note not found")
 
     # Validate file type
+    original_filename = file.filename or "untitled"
     if file.filename:
         ext = file.filename.rsplit('.', 1)[-1].lower() if '.' in file.filename else ''
     else:
         # For pasted images, default to png
         ext = 'png'
+        original_filename = f"pasted_image_{uuid.uuid4().hex[:8]}.png"
 
     if ext not in ALLOWED_FILE_TYPES:
         raise HTTPException(status_code=400, detail=f"File type not allowed. Allowed: {ALLOWED_FILE_TYPES}")
 
     # Read file content
     content = await file.read()
+    file_size = len(content)
 
     # Validate file size
-    if len(content) > MAX_FILE_SIZE:
+    if file_size > MAX_FILE_SIZE:
         raise HTTPException(status_code=400, detail=f"File too large. Max size: {MAX_FILE_SIZE // (1024*1024)}MB")
 
     # Generate unique filename
@@ -419,14 +424,23 @@ async def upload_attachment(note_id: int, file: UploadFile = File(...), current_
         f.write(content)
 
     # Determine file type
-    file_type = 'image' if ext in {'jpg', 'jpeg', 'png', 'gif', 'webp'} else 'document'
+    file_type = 'image' if ext in {'jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'} else 'document'
 
-    # Save to database
+    # Save to database - try with original_filename first, fallback if column doesn't exist
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    attachment_id = execute_insert(
-        "INSERT INTO gen_note_attachments (note_id, file_path, file_type, upload_date) VALUES (?, ?, ?, ?)",
-        (note_id, unique_name, file_type, now)
-    )
+    try:
+        attachment_id = execute_insert(
+            """INSERT INTO gen_note_attachments 
+               (note_id, file_path, file_type, original_filename, file_size, upload_date) 
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (note_id, unique_name, file_type, original_filename, file_size, now)
+        )
+    except sqlite3.OperationalError:
+        # Fallback for old schema without original_filename and file_size columns
+        attachment_id = execute_insert(
+            "INSERT INTO gen_note_attachments (note_id, file_path, file_type, upload_date) VALUES (?, ?, ?, ?)",
+            (note_id, unique_name, file_type, now)
+        )
 
     return AttachmentResponse(
         id=attachment_id,

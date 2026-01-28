@@ -12,6 +12,8 @@ class AttachmentResponse(BaseModel):
     id: int
     file_path: str
     file_type: Optional[str] = None
+    original_filename: Optional[str] = None
+    file_size: Optional[int] = None
     upload_date: Optional[datetime] = None
 
 

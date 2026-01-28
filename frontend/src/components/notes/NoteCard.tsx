@@ -90,7 +90,7 @@ export default function NoteCard({ note, onUpdate }: NoteCardProps) {
                     {/* Content Preview */}
                     {note.content && (
                         <p className="text-gray-600 text-sm mb-3 line-clamp-3">
-                            {note.content}
+                            {note.content.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ')}
                         </p>
                     )}
 
