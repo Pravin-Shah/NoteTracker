@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../../api/client';
 import ReactMarkdown from 'react-markdown';
-import { Search, Brain, Link as LinkIcon, Clock, ChevronRight } from 'lucide-react';
+import { Search, Brain, Link as LinkIcon, Clock, ChevronRight, ExternalLink } from 'lucide-react';
 
 export default function BrainWiki() {
     const [pages, setPages] = useState<any[]>([]);
@@ -40,114 +40,143 @@ export default function BrainWiki() {
 
     return (
         <div className="flex flex-1 h-full bg-[#121212] overflow-hidden">
-            {/* Wiki List */}
+            {/* Wiki List - Match Sidebar/Feed style */}
             <div className="w-80 border-r border-gray-800 flex flex-col bg-[#1a1a1a]">
-                <div className="p-4 border-b border-gray-800">
-                    <div className="flex items-center gap-2 mb-4">
+                <div className="px-4 py-6 border-b border-gray-800">
+                    <div className="flex items-center gap-2 mb-4 px-2">
                         <Brain className="w-5 h-5 text-blue-500" />
-                        <h2 className="text-lg font-semibold">Brain Wiki</h2>
+                        <h2 className="text-lg font-semibold text-white">Brain Wiki</h2>
                     </div>
-                    <div className="relative">
-                        <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                    <div className="relative px-2">
+                        <Search className="w-4 h-4 absolute left-5 top-1/2 -translate-y-1/2 text-gray-500" />
                         <input
                             type="text"
                             placeholder="Search wiki..."
-                            className="w-full bg-[#2a2a2a] border-none rounded-md py-2 pl-10 pr-4 text-sm focus:ring-1 focus:ring-blue-600 outline-none"
+                            className="w-full bg-[#2a2a2a] border border-gray-700 rounded-md py-2 pl-10 pr-4 text-[13px] text-gray-200 focus:ring-1 focus:ring-blue-600 outline-none transition-all"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto custom-scrollbar">
                     {loading ? (
-                        <div className="p-8 text-center text-gray-500">Loading...</div>
+                        <div className="p-8 text-center text-gray-500 text-sm">Loading...</div>
                     ) : filteredPages.length === 0 ? (
-                        <div className="p-8 text-center text-gray-500">No pages found.</div>
+                        <div className="p-8 text-center text-gray-500 text-sm">No pages found.</div>
                     ) : (
                         <div className="flex flex-col">
-                            {filteredPages.map(page => (
-                                <button
-                                    key={page.id}
-                                    onClick={() => fetchPageDetails(page.title)}
-                                    className={`p-4 text-left border-b border-gray-800/50 transition-colors ${selectedPage?.title === page.title ? 'bg-blue-600/10 border-l-4 border-l-blue-600' : 'hover:bg-[#252525]'}`}
-                                >
-                                    <div className="flex items-center justify-between mb-1">
-                                        <span className="text-xs font-medium text-blue-400 uppercase tracking-wider">{page.category}</span>
+                            {/* Grouped by Category */}
+                            {Array.from(new Set(filteredPages.map(p => p.category))).map(cat => (
+                                <div key={cat} className="mb-2">
+                                    <div className="px-6 py-2 text-[11px] font-bold text-gray-500 uppercase tracking-widest bg-[#151515]">
+                                        {cat || 'Uncategorized'}
                                     </div>
-                                    <h3 className="font-medium text-gray-100">{page.title}</h3>
-                                </button>
+                                    {filteredPages.filter(p => p.category === cat).map(page => (
+                                        <button
+                                            key={page.id}
+                                            onClick={() => fetchPageDetails(page.title)}
+                                            className={`w-full p-4 text-left border-b border-gray-800/30 transition-all ${selectedPage?.title === page.title ? 'bg-[#2a2a2a] text-white border-l-4 border-l-blue-600' : 'text-gray-400 hover:bg-[#202020] hover:text-gray-200'}`}
+                                        >
+                                            <h3 className="text-[14px] font-medium">{page.title}</h3>
+                                        </button>
+                                    ))}
+                                </div>
                             ))}
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* Content Area */}
-            <div className="flex-1 overflow-y-auto bg-[#121212]">
+            {/* Content Area - Match NoteEditor style */}
+            <div className="flex-1 flex flex-col bg-[#252525] overflow-hidden">
                 {selectedPage ? (
-                    <div className="max-w-4xl mx-auto p-8">
-                        <div className="flex items-center gap-2 text-xs text-gray-500 mb-6">
-                            <span>Second Brain</span>
-                            <ChevronRight className="w-3 h-3" />
-                            <span>{selectedPage.category}</span>
-                            <ChevronRight className="w-3 h-3" />
-                            <span className="text-gray-300">{selectedPage.title}</span>
-                        </div>
-
-                        <h1 className="text-4xl font-bold mb-4 text-white">{selectedPage.title}</h1>
-                        
-                        <div className="flex items-center gap-6 text-sm text-gray-500 mb-8 pb-8 border-b border-gray-800">
-                            <div className="flex items-center gap-2">
-                                <Clock className="w-4 h-4" />
-                                <span>Updated {new Date(selectedPage.last_updated).toLocaleDateString()}</span>
+                    <>
+                        {/* Header - Matching NoteEditor Header */}
+                        <div className="bg-[#1e1e1e] border-b border-gray-800 px-8 py-5 flex items-center justify-between flex-shrink-0">
+                            <div className="flex items-center gap-2 text-[13px]" style={{ paddingTop: '0.5rem', paddingBottom: '0.5rem' }}>
+                                <span className="text-gray-500">Second Brain</span>
+                                <span className="text-gray-600 mx-2">/</span>
+                                <span className="text-gray-500">{selectedPage.category}</span>
+                                <span className="text-gray-600 mx-2">/</span>
+                                <span className="text-white font-medium">{selectedPage.title}</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <LinkIcon className="w-4 h-4" />
-                                <span>{selectedPage.links?.length || 0} connections</span>
+                            
+                            <div className="flex items-center gap-3">
+                                <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-[12px] font-medium rounded transition-colors flex items-center gap-2">
+                                    <ExternalLink className="w-3 h-3" />
+                                    Explore Connections
+                                </button>
                             </div>
                         </div>
 
-                        <div className="prose prose-invert max-w-none prose-blue">
-                            <ReactMarkdown>{selectedPage.content}</ReactMarkdown>
-                        </div>
+                        {/* Scrollable Content Container */}
+                        <div className="flex-1 overflow-y-auto">
+                            <div className="max-w-3xl mx-auto py-10" style={{ paddingLeft: '3rem', paddingRight: '2rem' }}>
+                                {/* Title */}
+                                <h1 className="text-2xl font-semibold text-white leading-tight" style={{ marginTop: '0.75rem', marginBottom: '0.5rem' }}>
+                                    {selectedPage.title}
+                                </h1>
 
-                        {/* Connections Section */}
-                        {selectedPage.links && selectedPage.links.length > 0 && (
-                            <div className="mt-12 pt-8 border-t border-gray-800">
-                                <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
-                                    <LinkIcon className="w-5 h-5 text-blue-500" />
-                                    Related Concepts
-                                </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {selectedPage.links.map((link: any, idx: number) => {
-                                        const otherId = link.wiki_id_1 === selectedPage.id ? link.wiki_id_2 : link.wiki_id_1;
-                                        // Note: We need a way to get the title for otherId
-                                        // For now, let's assume the API returns enough info or we can find it in the 'pages' list
-                                        const otherPage = pages.find(p => p.id === otherId);
-                                        if (!otherPage) return null;
-
-                                        return (
-                                            <button
-                                                key={idx}
-                                                onClick={() => fetchPageDetails(otherPage.title)}
-                                                className="p-4 bg-[#1a1a1a] rounded-lg border border-gray-800 hover:border-blue-600/50 transition-all text-left group"
-                                            >
-                                                <div className="text-xs text-blue-400 mb-1">{link.relationship_type}</div>
-                                                <div className="font-medium group-hover:text-blue-400 transition-colors">{otherPage.title}</div>
-                                            </button>
-                                        );
-                                    })}
+                                {/* Metadata - Match Note Metadata Style */}
+                                <div className="flex items-center gap-6 text-[13px] text-gray-500 border-b border-gray-700" style={{ paddingBottom: '1rem', marginBottom: '1.5rem' }}>
+                                    <div className="flex items-center gap-2">
+                                        <Clock className="w-4 h-4" />
+                                        <span>Updated: {new Date(selectedPage.last_updated).toLocaleDateString()}</span>
+                                    </div>
+                                    <span className="text-gray-700">|</span>
+                                    <div className="flex items-center gap-2">
+                                        <LinkIcon className="w-4 h-4" />
+                                        <span>Connections: {selectedPage.links?.length || 0}</span>
+                                    </div>
                                 </div>
+
+                                {/* White Content Card - MATCHING USER SCREENSHOT */}
+                                <div className="bg-white rounded-xl p-8 shadow-2xl mb-12 min-h-[400px]">
+                                    <div className="prose prose-slate max-w-none prose-p:text-gray-700 prose-headings:text-gray-900 text-gray-800 leading-relaxed">
+                                        <ReactMarkdown>{selectedPage.content}</ReactMarkdown>
+                                    </div>
+                                </div>
+
+                                {/* Related Concepts Section - Premium Styling */}
+                                {selectedPage.links && selectedPage.links.length > 0 && (
+                                    <div className="mt-8 pt-8 border-t border-gray-800">
+                                        <h3 className="text-[13px] font-medium text-gray-400 uppercase tracking-widest mb-6">Related Concepts</h3>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            {selectedPage.links.map((link: any, idx: number) => {
+                                                const otherId = link.wiki_id_1 === selectedPage.id ? link.wiki_id_2 : link.wiki_id_1;
+                                                const otherPage = pages.find(p => p.id === otherId);
+                                                if (!otherPage) return null;
+
+                                                return (
+                                                    <button
+                                                        key={idx}
+                                                        onClick={() => fetchPageDetails(otherPage.title)}
+                                                        className="group p-4 bg-[#1a1a1a] rounded-lg border border-gray-800 hover:border-blue-600/50 hover:bg-[#202020] transition-all text-left"
+                                                    >
+                                                        <div className="text-[10px] text-blue-500 uppercase font-bold tracking-tighter mb-1 opacity-80 group-hover:opacity-100 transition-opacity">
+                                                            {link.relationship_type}
+                                                        </div>
+                                                        <div className="text-[14px] font-medium text-gray-200 group-hover:text-white transition-colors">
+                                                            {otherPage.title}
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </div>
+                        </div>
+                    </>
                 ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-gray-500 space-y-4">
-                        <Brain className="w-16 h-16 text-gray-800" />
+                    <div className="h-full flex flex-col items-center justify-center text-gray-600 space-y-6">
+                        <div className="w-24 h-24 bg-[#1e1e1e] rounded-full flex items-center justify-center border border-gray-800">
+                            <Brain className="w-12 h-12 text-gray-700" />
+                        </div>
                         <div className="text-center">
-                            <h3 className="text-xl font-medium text-gray-300">Your Knowledge Graph</h3>
-                            <p className="max-w-xs mx-auto">Select a wiki page from the sidebar to explore your second brain.</p>
+                            <h3 className="text-xl font-medium text-gray-300 mb-2">Knowledge Graph</h3>
+                            <p className="max-w-xs mx-auto text-sm">Select a wiki page from the sidebar to explore your second brain.</p>
                         </div>
                     </div>
                 )}
