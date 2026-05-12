@@ -85,8 +85,8 @@ class LLMProvider:
             if force_json:
                 config["response_mime_type"] = "application/json"
 
-            # Use Stable 1.5 Flash Latest
-            model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash-latest")
+            # VERIFIED MODEL NAME from list_models()
+            model_name = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
             
             model = genai.GenerativeModel(
                 model_name=model_name,
