@@ -75,16 +75,18 @@ class LLMProvider:
                         except Exception as ie:
                             logger.warning(f"Failed to load image {img_path}: {ie}")
 
+            # Tools for search
             tools = []
             if use_search:
+                # Use standard search tool
                 tools.append({"google_search_retrieval": {}})
 
             config = {}
             if force_json:
                 config["response_mime_type"] = "application/json"
 
-            # Use Stable 1.5 Flash as default
-            model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+            # Use Stable 1.5 Flash Latest
+            model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash-latest")
             
             model = genai.GenerativeModel(
                 model_name=model_name,
