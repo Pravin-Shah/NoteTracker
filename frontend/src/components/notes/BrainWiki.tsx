@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../../api/client';
 import ReactMarkdown from 'react-markdown';
-import { Search, Brain, Link as LinkIcon, Clock, ExternalLink, Trash2, Zap, Loader2 } from 'lucide-react';
+import { Search, Brain, Link as LinkIcon, Clock, ExternalLink, Trash2, Zap, Loader2, FileText } from 'lucide-react';
 
 export default function BrainWiki() {
     const [pages, setPages] = useState<any[]>([]);
@@ -188,6 +188,31 @@ export default function BrainWiki() {
                                         <ReactMarkdown>{selectedPage.content}</ReactMarkdown>
                                     </div>
                                 </div>
+
+                                {/* Source Notes Section */}
+                                {selectedPage.source_notes && selectedPage.source_notes.length > 0 && (
+                                    <div className="mt-8 pt-8 border-t border-gray-800">
+                                        <h3 className="text-[13px] font-medium text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                            <FileText className="w-4 h-4" />
+                                            Source Notes
+                                        </h3>
+                                        <div className="space-y-2">
+                                            {selectedPage.source_notes.map((note: any, idx: number) => (
+                                                <div 
+                                                    key={idx}
+                                                    className="p-3 bg-[#1a1a1a] rounded border border-gray-800 text-[13px] text-gray-300 flex items-center justify-between"
+                                                >
+                                                    <div className="truncate max-w-[80%]">
+                                                        {note.content.split('\n')[0].substring(0, 80) || 'Untitled Note'}...
+                                                    </div>
+                                                    <span className="text-[11px] text-gray-500 whitespace-nowrap">
+                                                        {new Date(note.created_date).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Related Concepts Section - Premium Styling */}
                                 {selectedPage.links && selectedPage.links.length > 0 && (

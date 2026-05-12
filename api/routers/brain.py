@@ -1,6 +1,7 @@
 """
 FastAPI Router for Second Brain.
 """
+import json
 from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
 from api.database import execute_query, get_record_by_id
@@ -22,14 +23,28 @@ async def get_single_wiki_page(
     title: str,
     current_user: dict = Depends(get_current_user)
 ):
-    """Get a specific wiki page by title."""
+    """Get a specific wiki page by title with links and source details."""
     page = get_wiki_page(current_user['id'], title)
     if not page:
         raise HTTPException(status_code=404, detail="Wiki page not found")
     
-    # Also fetch links
+    # Fetch links
     links = get_links(page['id'])
+    
+    # Fetch source note titles and IDs
+    source_notes = []
+    if page.get('source_ids'):
+        try:
+            ids = json.loads(page['source_ids'])
+            if ids:
+                # Get raw dumps that were processed
+                sql = f"SELECT id, content, source_type, created_date FROM brain_raw WHERE id IN ({','.join(['?' for _ in ids])})"
+                source_notes = execute_query(sql, tuple(ids))
+        except Exception as e:
+            print(f"Error fetching source notes: {e}")
+
     page['links'] = links
+    page['source_notes'] = source_notes
     return page
 
 @router.post("/ingest")
