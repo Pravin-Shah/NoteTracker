@@ -1,5 +1,5 @@
 """
-LLM Orchestration Layer for Second Brain (Multimodal enabled).
+LLM Orchestration Layer for Second Brain (Multimodal + Search enabled).
 """
 import os
 import json
@@ -25,15 +25,13 @@ class LLMProvider:
         if not self.api_key:
             raise ValueError(f"Missing API key for {self.provider}")
 
-    def complete(self, system_prompt: str, user_prompt: str, images: List[str] = None) -> str:
-        """Complete with optional image support."""
-        if images and self.provider == "gemini":
-            return self._complete_gemini_multimodal(system_prompt, user_prompt, images)
+    def complete(self, system_prompt: str, user_prompt: str, images: List[str] = None, use_search: bool = False) -> str:
+        """Complete with optional image and search support."""
+        if self.provider == "gemini":
+            return self._complete_gemini(system_prompt, user_prompt, images, use_search)
         
         if self.provider == "groq":
             return self._complete_groq(system_prompt, user_prompt)
-        elif self.provider == "gemini":
-            return self._complete_gemini(system_prompt, user_prompt)
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
 
@@ -55,22 +53,7 @@ class LLMProvider:
             logger.error(f"Groq error: {e}")
             return f"Error: {str(e)}"
 
-    def _complete_gemini(self, system_prompt: str, user_prompt: str) -> str:
-        try:
-            import google.generativeai as genai
-            genai.configure(api_key=self.api_key)
-            model = genai.GenerativeModel(
-                model_name=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
-                system_instruction=system_prompt
-            )
-            response = model.generate_content(user_prompt)
-            return response.text
-        except Exception as e:
-            logger.error(f"Gemini error: {e}")
-            return f"Error: {str(e)}"
-
-    def _complete_gemini_multimodal(self, system_prompt: str, user_prompt: str, images: List[str]) -> str:
-        """Gemini Multimodal completion."""
+    def _complete_gemini(self, system_prompt: str, user_prompt: str, images: List[str] = None, use_search: bool = False) -> str:
         try:
             import google.generativeai as genai
             genai.configure(api_key=self.api_key)
@@ -78,30 +61,36 @@ class LLMProvider:
             # Prepare contents
             contents = [user_prompt]
             
-            # Load and add images
-            upload_dir = Path(os.getenv("UPLOADS_DIR", "data/uploads"))
-            for img_path in images:
-                full_path = upload_dir / img_path
-                if full_path.exists():
-                    try:
-                        # Simple implementation: read bytes
-                        img_data = {
-                            "mime_type": "image/jpeg" if img_path.lower().endswith(('.jpg', '.jpeg')) else "image/png",
-                            "data": full_path.read_bytes()
-                        }
-                        contents.append(img_data)
-                    except Exception as ie:
-                        logger.warning(f"Failed to load image {img_path}: {ie}")
+            # Load and add images if any
+            if images:
+                upload_dir = Path(os.getenv("UPLOADS_DIR", "data/uploads"))
+                for img_path in images:
+                    full_path = upload_dir / img_path
+                    if full_path.exists():
+                        try:
+                            img_data = {
+                                "mime_type": "image/jpeg" if img_path.lower().endswith(('.jpg', '.jpeg')) else "image/png",
+                                "data": full_path.read_bytes()
+                            }
+                            contents.append(img_data)
+                        except Exception as ie:
+                            logger.warning(f"Failed to load image {img_path}: {ie}")
+
+            # Tools for search
+            tools = []
+            if use_search:
+                tools.append({"google_search_retrieval": {}})
 
             model = genai.GenerativeModel(
                 model_name=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
-                system_instruction=system_prompt
+                system_instruction=system_prompt,
+                tools=tools
             )
             response = model.generate_content(contents)
             return response.text
         except Exception as e:
-            logger.error(f"Gemini Multimodal error: {e}")
-            return self._complete_gemini(system_prompt, user_prompt)
+            logger.error(f"Gemini error: {e}")
+            return f"Error: {str(e)}"
 
 class BrainEngine:
     def __init__(self, user_id: int):
@@ -109,7 +98,7 @@ class BrainEngine:
         self.llm = LLMProvider()
 
     def ingest(self):
-        """Process raw dumps into wiki."""
+        """Process raw dumps into wiki with multimodal and search support."""
         unprocessed = get_unprocessed(self.user_id)
         if not unprocessed:
             return "No raw dumps to process."
@@ -118,14 +107,13 @@ class BrainEngine:
         wiki_index = list_wiki_pages(self.user_id)
         wiki_index_str = json.dumps(wiki_index, indent=2)
 
-        # Collect all images from unprocessed dumps
+        # Collect images
         all_images = []
         for r in unprocessed:
             if r.get('attachments'):
                 try:
                     att = json.loads(r['attachments'])
                     if isinstance(att, list):
-                        # Filter for images
                         images = [a for a in att if a.lower().endswith(('.png', '.jpg', '.jpeg', '.webp'))]
                         all_images.extend(images)
                 except:
@@ -133,22 +121,27 @@ class BrainEngine:
 
         # Build input for LLM
         raw_content = "\n---\n".join([f"ID: {r['id']} - {r['content']}" for r in unprocessed])
-        user_prompt = f"EXISTING WIKI INDEX:\n{wiki_index_str}\n\nRAW NOTES TO PROCESS:\n{raw_content}"
+        
+        # Enhanced instruction for Search
+        search_instruction = ""
+        use_search = os.getenv("BRAIN_ENABLE_SEARCH", "true").lower() == "true"
+        if use_search:
+            search_instruction = "\n\nCRITICAL: You have access to Google Search. If a note mentions a project, company, person, or technical concept that you don't fully know about, SEARCH for it. Use the search results to enrich the wiki pages. Add a '## Web Intelligence' section at the end of the page for external findings and links."
+
+        user_prompt = f"EXISTING WIKI INDEX:\n{wiki_index_str}\n\nRAW NOTES TO PROCESS:\n{raw_content}{search_instruction}"
         
         if all_images:
-            user_prompt += f"\n\nNOTE: I have attached {len(all_images)} images from these notes. Please analyze them carefully to extract details, charts, or diagrams."
+            user_prompt += f"\n\nAttached {len(all_images)} images for visual analysis."
 
         # Get LLM response
-        response_str = self.llm.complete(INGEST_SYSTEM_PROMPT, user_prompt, images=all_images)
+        response_str = self.llm.complete(INGEST_SYSTEM_PROMPT, user_prompt, images=all_images, use_search=use_search)
         
         try:
-            # Clean response (Gemini sometimes adds markdown blocks)
             if response_str.startswith("```json"):
                 response_str = response_str.split("```json")[1].split("```")[0].strip()
             
             data = json.loads(response_str)
             
-            # 1. Update Wiki Pages
             for page in data.get("wiki_pages", []):
                 upsert_wiki_page(
                     self.user_id, 
@@ -158,20 +151,16 @@ class BrainEngine:
                     [r['id'] for r in unprocessed]
                 )
             
-            # 2. Update Links
             for link in data.get("links", []):
                 p1 = get_wiki_page(self.user_id, link['from'])
                 p2 = get_wiki_page(self.user_id, link['to'])
                 if p1 and p2:
                     add_link(p1['id'], p2['id'], link['relationship'])
 
-            # 3. Mark Processed
             for r in unprocessed:
                 mark_processed(r['id'])
 
-            # 4. Log operation
-            log_llm_op("ingest", f"{len(unprocessed)} raw dumps ({len(all_images)} images)", data.get("summary", ""), self.llm.provider)
-
+            log_llm_op("ingest", f"{len(unprocessed)} dumps, {len(all_images)} imgs, search={use_search}", data.get("summary", ""), self.llm.provider)
             return data.get("summary", "Ingestion complete.")
 
         except json.JSONDecodeError:
@@ -182,7 +171,7 @@ class BrainEngine:
             return f"Error: {str(e)}"
 
     def query(self, question: str):
-        """Ask your brain a question."""
+        """Ask your brain a question with search capabilities."""
         all_pages = list_wiki_pages(self.user_id)
         relevant_titles = [p['title'] for p in all_pages if any(word.lower() in p['title'].lower() for word in question.split())]
         
@@ -196,9 +185,13 @@ class BrainEngine:
                 context_pages.append(f"TITLE: {page['title']}\nCATEGORY: {page['category']}\nCONTENT:\n{page['content']}")
 
         context_str = "\n\n---\n\n".join(context_pages)
-        user_prompt = f"QUESTION: {question}\n\nCONTEXT:\n{context_str}"
+        use_search = os.getenv("BRAIN_ENABLE_SEARCH_QUERY", "true").lower() == "true"
+        
+        user_prompt = f"QUESTION: {question}\n\nCONTEXT FROM BRAIN:\n{context_str}"
+        if use_search:
+            user_prompt += "\n\nIf you need more up-to-date info to answer the question, feel free to use Google Search."
 
-        response = self.llm.complete(QUERY_SYSTEM_PROMPT, user_prompt)
+        response = self.llm.complete(QUERY_SYSTEM_PROMPT, user_prompt, use_search=use_search)
         log_llm_op("query", question, response[:500] + "...", self.llm.provider)
         return response
 
