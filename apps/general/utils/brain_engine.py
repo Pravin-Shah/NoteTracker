@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 class LLMProvider:
     def __init__(self, provider: str = None):
-        self.provider = provider or os.getenv("BRAIN_LLM_PROVIDER", "groq").lower()
+        self.provider = provider or os.getenv("BRAIN_LLM_PROVIDER", "gemini").lower()
         self.api_key = os.getenv(f"{self.provider.upper()}_API_KEY")
         
         if not self.api_key:
@@ -83,8 +83,11 @@ class LLMProvider:
             if force_json:
                 config["response_mime_type"] = "application/json"
 
+            # Use Stable 1.5 Flash as default
+            model_name = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+            
             model = genai.GenerativeModel(
-                model_name=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
+                model_name=model_name,
                 system_instruction=system_prompt,
                 tools=tools
             )
@@ -102,18 +105,14 @@ class BrainEngine:
     def _extract_json(self, text: str) -> Optional[Dict]:
         """Extract JSON from LLM response reliably."""
         try:
-            # Try direct parse
             return json.loads(text)
         except:
-            # Try to find json block
             match = re.search(r'```json\s*(.*?)\s*```', text, re.DOTALL)
             if match:
                 try:
                     return json.loads(match.group(1))
                 except:
                     pass
-            
-            # Try to find first { and last }
             start = text.find('{')
             end = text.rfind('}')
             if start != -1 and end != -1:
@@ -155,7 +154,6 @@ class BrainEngine:
         if all_images:
             user_prompt += f"\n\nAttached {len(all_images)} images for visual analysis."
 
-        # Get LLM response (Force JSON)
         response_str = self.llm.complete(INGEST_SYSTEM_PROMPT, user_prompt, images=all_images, use_search=use_search, force_json=True)
         
         if response_str.startswith("API_ERROR"):
