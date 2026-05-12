@@ -88,14 +88,6 @@ if __name__ == '__main__':
     application = ApplicationBuilder().token(TOKEN).build()
     
     application.add_handler(CommandHandler('start', start))
-    application.add_handler(CommandHandler('brain', start)) # Alias
-    
-    # Nested commands under /brain (handled via args for simplicity, or separate handlers)
-    application.add_handler(CommandHandler('brain_dump', brain_dump))
-    
-    # Or more advanced: separate handlers for each sub-command
-    # But user asked for /brain dump <thought>
-    # To handle /brain dump, we can use a single /brain handler that parses args[0]
     
     async def brain_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not context.args:
@@ -103,7 +95,7 @@ if __name__ == '__main__':
             return
         
         cmd = context.args[0].lower()
-        context.args = context.args[1:] # Shift args
+        context.args = list(context.args[1:]) # Shift args and ensure it's a list
         
         if cmd == 'dump':
             await brain_dump(update, context)
