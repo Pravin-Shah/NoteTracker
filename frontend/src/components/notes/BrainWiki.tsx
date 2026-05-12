@@ -69,13 +69,32 @@ export default function BrainWiki() {
 
     return (
         <div className="flex flex-1 h-full bg-[#121212] overflow-hidden">
-            {/* Wiki List - Match Sidebar/Feed style */}
+            {/* Wiki List - Sidebar */}
             <div className="w-80 border-r border-gray-800 flex flex-col bg-[#1a1a1a]">
                 <div className="px-4 py-6 border-b border-gray-800">
-                    <div className="flex items-center gap-2 mb-4 px-2">
-                        <Brain className="w-5 h-5 text-blue-500" />
-                        <h2 className="text-lg font-semibold text-white">Brain Wiki</h2>
+                    <div className="flex items-center justify-between mb-4 px-2">
+                        <div className="flex items-center gap-2">
+                            <Brain className="w-5 h-5 text-blue-500" />
+                            <h2 className="text-lg font-semibold text-white">Brain Wiki</h2>
+                        </div>
                     </div>
+                    
+                    {/* NEW: Global Digest Button in Sidebar */}
+                    <div className="px-2 mb-4">
+                        <button
+                            onClick={handleRunIngestion}
+                            disabled={isIngesting}
+                            className="w-full py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white text-[12px] font-medium rounded transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20"
+                        >
+                            {isIngesting ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                                <Zap className="w-3.5 h-3.5" />
+                            )}
+                            {isIngesting ? 'Processing...' : 'Digest Raw Thoughts'}
+                        </button>
+                    </div>
+
                     <div className="relative px-2">
                         <Search className="w-4 h-4 absolute left-5 top-1/2 -translate-y-1/2 text-gray-500" />
                         <input
@@ -138,20 +157,6 @@ export default function BrainWiki() {
                                     title="Delete wiki page"
                                 >
                                     <Trash2 className="w-4 h-4" />
-                                </button>
-
-                                <button
-                                    onClick={handleRunIngestion}
-                                    disabled={isIngesting}
-                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white text-[12px] font-medium rounded transition-all flex items-center gap-2"
-                                    title="Process raw thoughts into wiki pages"
-                                >
-                                    {isIngesting ? (
-                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                    ) : (
-                                        <Zap className="w-3.5 h-3.5" />
-                                    )}
-                                    {isIngesting ? 'Processing...' : 'Digest Raw Thoughts'}
                                 </button>
                                 
                                 <button className="px-4 py-2 bg-[#2a2a2a] hover:bg-[#333] text-gray-300 border border-gray-700 text-[12px] font-medium rounded transition-colors flex items-center gap-2">
