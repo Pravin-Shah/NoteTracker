@@ -3,7 +3,7 @@ import api from '../../api/client';
 import ReactMarkdown from 'react-markdown';
 import { Search, Brain, Link as LinkIcon, Clock, ExternalLink, Trash2, Zap, Loader2, FileText } from 'lucide-react';
 
-export default function BrainWiki() {
+export default function BrainWiki({ onOpenNote }: { onOpenNote?: (id: number) => void }) {
     const [pages, setPages] = useState<any[]>([]);
     const [selectedPage, setSelectedPage] = useState<any>(null);
     const [loading, setLoading] = useState(true);
@@ -205,9 +205,11 @@ export default function BrainWiki() {
                                             {selectedPage.source_notes.map((note: any, idx: number) => (
                                                 <div 
                                                     key={idx}
-                                                    className="p-3 bg-[#1a1a1a] rounded border border-gray-800 text-[13px] text-gray-300 flex items-center justify-between"
+                                                    className={`p-3 bg-[#1a1a1a] rounded border border-gray-800 text-[13px] text-gray-300 flex items-center justify-between ${note.external_id ? 'hover:border-blue-600/50 cursor-pointer group' : ''}`}
+                                                    onClick={() => note.external_id && onOpenNote?.(note.external_id)}
                                                 >
-                                                    <div className="truncate max-w-[80%]">
+                                                    <div className="truncate max-w-[80%] flex items-center gap-2">
+                                                        {note.external_id && <ExternalLink className="w-3 h-3 text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity" />}
                                                         {note.content.split('\n')[0].substring(0, 80) || 'Untitled Note'}...
                                                     </div>
                                                     <span className="text-[11px] text-gray-500 whitespace-nowrap">

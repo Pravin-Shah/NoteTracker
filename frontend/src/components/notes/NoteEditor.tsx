@@ -183,6 +183,7 @@ export default function NoteEditor({ noteId, isEditing, onEditToggle, onNoteCrea
             await api.post('/api/brain/ingest', {
                 content: `Title: ${note.title}\n\n${note.content}`,
                 source: 'notetracker',
+                note_id: note.id,
                 attachments: attachmentPaths
             });
             alert('✅ Sent to Brain for processing!');

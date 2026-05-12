@@ -74,7 +74,10 @@ export default function NotesLayout() {
             {showDailyTracker ? (
                 <DailyTracker initialTab={selectedFolder === 'health-log' ? 'reports' : 'today'} />
             ) : showBrainWiki ? (
-                <BrainWiki />
+                <BrainWiki onOpenNote={(id) => {
+                    handleFolderChange('all');
+                    handleNoteSelect(id);
+                }} />
             ) : (
                 <>
                     {/* B. Feed - Notes List (~320px) */}
