@@ -179,9 +179,11 @@ export default function NoteEditor({ noteId, isEditing, onEditToggle, onNoteCrea
     const handleSendToBrain = async () => {
         if (!note) return;
         try {
+            const attachmentPaths = note.attachments?.map(a => a.file_path) || [];
             await api.post('/api/brain/ingest', {
                 content: `Title: ${note.title}\n\n${note.content}`,
-                source: 'notetracker'
+                source: 'notetracker',
+                attachments: attachmentPaths
             });
             alert('✅ Sent to Brain for processing!');
         } catch (error) {

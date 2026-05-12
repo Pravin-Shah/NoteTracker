@@ -42,11 +42,12 @@ async def ingest_raw_data(
     
     content = payload.get("content")
     source = payload.get("source", "notetracker")
+    attachments = payload.get("attachments", []) # List of file paths/names
     
     if not content:
         raise HTTPException(status_code=400, detail="Content is required")
     
-    dump_id = save_raw_dump(current_user['id'], content, source)
+    dump_id = save_raw_dump(current_user['id'], content, source, attachments)
     return {"status": "success", "id": dump_id}
 
 @router.get("/raw", response_model=List[dict])

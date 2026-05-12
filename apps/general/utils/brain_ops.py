@@ -7,17 +7,18 @@ from datetime import datetime
 from typing import List, Dict, Any, Optional
 from api.database import execute_query, execute_insert, execute_update, get_record_by_id
 
-def add_raw_dump(user_id: int, content: str, source_type: str = 'text') -> int:
+def add_raw_dump(user_id: int, content: str, source_type: str = 'text', attachments: List[str] = None) -> int:
     """Add a raw unprocessed thought/dump to brain_raw."""
+    attachments_json = json.dumps(attachments or [])
     sql = """
-        INSERT INTO brain_raw (user_id, content, source_type, processed)
-        VALUES (?, ?, ?, 0)
+        INSERT INTO brain_raw (user_id, content, source_type, processed, attachments)
+        VALUES (?, ?, ?, 0, ?)
     """
-    return execute_insert(sql, (user_id, content, source_type))
+    return execute_insert(sql, (user_id, content, source_type, attachments_json))
 
-def save_raw_dump(user_id: int, content: str, source_type: str = 'text') -> int:
+def save_raw_dump(user_id: int, content: str, source_type: str = 'text', attachments: List[str] = None) -> int:
     """Alias for add_raw_dump used by API."""
-    return add_raw_dump(user_id, content, source_type)
+    return add_raw_dump(user_id, content, source_type, attachments)
 
 def get_unprocessed(user_id: int) -> List[Dict]:
     """Get all unprocessed raw dumps for a user."""
