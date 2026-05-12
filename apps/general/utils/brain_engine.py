@@ -1,5 +1,5 @@
 """
-LLM Orchestration Layer for Second Brain (Robust JSON + Search).
+LLM Orchestration Layer for Second Brain (Smart Quota Management).
 """
 import os
 import json
@@ -28,18 +28,21 @@ class LLMProvider:
 
     def complete(self, system_prompt: str, user_prompt: str, images: List[str] = None, use_search: bool = False, force_json: bool = False) -> str:
         """Complete with optional image and search support."""
+        # SMART ROUTING: If no images and no search, and we have Groq, use Groq for speed/quota
+        groq_key = os.getenv("GROQ_API_KEY")
+        if not images and not use_search and groq_key and self.provider != "gemini":
+            return self._complete_groq(system_prompt, user_prompt, force_json)
+
         if self.provider == "gemini":
             return self._complete_gemini(system_prompt, user_prompt, images, use_search, force_json)
         
-        if self.provider == "groq":
-            return self._complete_groq(system_prompt, user_prompt, force_json)
-        else:
-            raise ValueError(f"Unsupported provider: {self.provider}")
+        return self._complete_groq(system_prompt, user_prompt, force_json)
 
     def _complete_groq(self, system_prompt: str, user_prompt: str, force_json: bool = False) -> str:
         try:
             from groq import Groq
-            client = Groq(api_key=self.api_key)
+            api_key = os.getenv("GROQ_API_KEY")
+            client = Groq(api_key=api_key)
             completion = client.chat.completions.create(
                 model=os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"),
                 messages=[
@@ -75,17 +78,14 @@ class LLMProvider:
                         except Exception as ie:
                             logger.warning(f"Failed to load image {img_path}: {ie}")
 
-            # Tools for search
             tools = []
             if use_search:
-                # Use standard search tool
                 tools.append({"google_search_retrieval": {}})
 
             config = {}
             if force_json:
                 config["response_mime_type"] = "application/json"
 
-            # VERIFIED MODEL NAME from list_models()
             model_name = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
             
             model = genai.GenerativeModel(
@@ -105,7 +105,6 @@ class BrainEngine:
         self.llm = LLMProvider()
 
     def _extract_json(self, text: str) -> Optional[Dict]:
-        """Extract JSON from LLM response reliably."""
         try:
             return json.loads(text)
         except:
@@ -134,7 +133,12 @@ class BrainEngine:
         wiki_index_str = json.dumps(wiki_index, indent=2)
 
         all_images = []
+        needs_search = False
+        raw_text_combined = ""
+
         for r in unprocessed:
+            raw_text_combined += f"\nID: {r['id']} - {r['content']}"
+            # Check for images
             if r.get('attachments'):
                 try:
                     att = json.loads(r['attachments'])
@@ -143,38 +147,38 @@ class BrainEngine:
                         all_images.extend(images)
                 except:
                     pass
+            # Check for explicit research intent
+            if "research" in r['content'].lower() or "search" in r['content'].lower():
+                needs_search = True
 
-        raw_content = "\n---\n".join([f"ID: {r['id']} - {r['content']}" for r in unprocessed])
-        
-        use_search = os.getenv("BRAIN_ENABLE_SEARCH", "true").lower() == "true"
+        use_search = (os.getenv("BRAIN_ENABLE_SEARCH", "true").lower() == "true") and needs_search
         search_instruction = ""
         if use_search:
-            search_instruction = "\n\nCRITICAL: You have access to Google Search. If a note mentions a project, company, person, or technical concept that you don't fully know about, SEARCH for it. Use the search results to enrich the wiki pages. Add a '## Web Intelligence' section at the end of the page for external findings and links."
+            search_instruction = "\n\nCRITICAL: You have access to Google Search. SEARCH for the concepts mentioned. Use the search results to enrich the wiki pages. Add a '## Web Intelligence' section at the end of the page for external findings."
 
-        user_prompt = f"EXISTING WIKI INDEX:\n{wiki_index_str}\n\nRAW NOTES TO PROCESS:\n{raw_content}{search_instruction}"
+        user_prompt = f"EXISTING WIKI INDEX:\n{wiki_index_str}\n\nRAW NOTES TO PROCESS:\n{raw_text_combined}{search_instruction}"
         
-        if all_images:
-            user_prompt += f"\n\nAttached {len(all_images)} images for visual analysis."
+        # Decide which provider to use based on content
+        # If images or search needed, use Gemini. Otherwise, Groq.
+        if all_images or use_search:
+            provider = "gemini"
+        else:
+            provider = "groq"
 
-        response_str = self.llm.complete(INGEST_SYSTEM_PROMPT, user_prompt, images=all_images, use_search=use_search, force_json=True)
+        # Override provider for this call
+        temp_llm = LLMProvider(provider=provider)
+        response_str = temp_llm.complete(INGEST_SYSTEM_PROMPT, user_prompt, images=all_images, use_search=use_search, force_json=True)
         
         if response_str.startswith("API_ERROR"):
             return response_str
 
         data = self._extract_json(response_str)
         if not data:
-            logger.error(f"Failed to parse LLM response: {response_str}")
             return "Error: LLM returned invalid JSON structure."
 
         try:
             for page in data.get("wiki_pages", []):
-                upsert_wiki_page(
-                    self.user_id, 
-                    page['title'], 
-                    page['category'], 
-                    page['content'], 
-                    [r['id'] for r in unprocessed]
-                )
+                upsert_wiki_page(self.user_id, page['title'], page['category'], page['content'], [r['id'] for r in unprocessed])
             
             for link in data.get("links", []):
                 p1 = get_wiki_page(self.user_id, link['from'])
@@ -185,68 +189,52 @@ class BrainEngine:
             for r in unprocessed:
                 mark_processed(r['id'])
 
-            log_llm_op("ingest", f"{len(unprocessed)} dumps, {len(all_images)} imgs, search={use_search}", data.get("summary", ""), self.llm.provider)
+            log_llm_op("ingest", f"{len(unprocessed)} dumps, {len(all_images)} imgs, search={use_search}", data.get("summary", ""), provider)
             return data.get("summary", "Ingestion complete.")
 
         except Exception as e:
-            logger.error(f"Ingest error: {e}")
             return f"Error during processing: {str(e)}"
 
     def query(self, question: str):
         all_pages = list_wiki_pages(self.user_id)
         relevant_titles = [p['title'] for p in all_pages if any(word.lower() in p['title'].lower() for word in question.split())]
         
-        if not relevant_titles:
-            relevant_titles = [p['title'] for p in all_pages[:10]]
-
         context_pages = []
-        for title in relevant_titles:
+        for title in relevant_titles[:5]:
             page = get_wiki_page(self.user_id, title)
             if page:
-                context_pages.append(f"TITLE: {page['title']}\nCATEGORY: {page['category']}\nCONTENT:\n{page['content']}")
+                context_pages.append(f"TITLE: {page['title']}\nCONTENT:\n{page['content']}")
 
         context_str = "\n\n---\n\n".join(context_pages)
-        use_search = os.getenv("BRAIN_ENABLE_SEARCH_QUERY", "true").lower() == "true"
+        # Only use search if question implies it
+        use_search = "search" in question.lower() or "latest" in question.lower() or "news" in question.lower()
         
         user_prompt = f"QUESTION: {question}\n\nCONTEXT FROM BRAIN:\n{context_str}"
         if use_search:
-            user_prompt += "\n\nIf you need more up-to-date info to answer the question, feel free to use Google Search."
+            user_prompt += "\n\nFeel free to use Google Search for up-to-date info."
 
-        response = self.llm.complete(QUERY_SYSTEM_PROMPT, user_prompt, use_search=use_search)
-        log_llm_op("query", question, response[:500] + "...", self.llm.provider)
+        provider = "gemini" if use_search else "groq"
+        temp_llm = LLMProvider(provider=provider)
+        response = temp_llm.complete(QUERY_SYSTEM_PROMPT, user_prompt, use_search=use_search)
+        log_llm_op("query", question, response[:500] + "...", provider)
         return response
 
     def lint(self):
         all_pages = list_wiki_pages(self.user_id)
-        full_wiki = []
-        for p in all_pages:
-            page = get_wiki_page(self.user_id, p['title'])
-            if page:
-                full_wiki.append({"title": page['title'], "category": page['category'], "content": page['content']})
-
+        full_wiki = [{"title": p['title'], "category": p['category']} for p in all_pages]
         user_prompt = json.dumps(full_wiki)
-        response_str = self.llm.complete(LINT_SYSTEM_PROMPT, user_prompt, force_json=True)
-
-        if response_str.startswith("API_ERROR"):
-            return {"error": response_str}
+        # Lint is always Groq (cheap)
+        temp_llm = LLMProvider(provider="groq")
+        response_str = temp_llm.complete(LINT_SYSTEM_PROMPT, user_prompt, force_json=True)
 
         data = self._extract_json(response_str)
-        if not data:
-            return {"error": "Invalid JSON report"}
+        if not data: return {"error": "Invalid JSON"}
 
         try:
-            report_content = f"## Health Score: {data.get('health_score', 0)}/100\n\n"
-            report_content += "### Issues Found\n"
+            report_content = f"## Health Score: {data.get('health_score', 0)}/100\n\n### Issues Found\n"
             for issue in data.get("issues", []):
-                report_content += f"- **{issue['type']}**: {issue['description']} (Pages: {', '.join(issue['pages'])})\n"
-            
-            report_content += "\n### Suggestions\n"
-            for suggestion in data.get("suggestions", []):
-                report_content += f"- {suggestion}\n"
-
+                report_content += f"- **{issue['type']}**: {issue['description']}\n"
             upsert_wiki_page(self.user_id, "Brain Health Report", "System", report_content, [])
-            log_llm_op("lint", f"{len(all_pages)} pages", "Health report generated", self.llm.provider)
             return data
         except Exception as e:
-            logger.error(f"Lint error: {e}")
             return {"error": str(e)}
