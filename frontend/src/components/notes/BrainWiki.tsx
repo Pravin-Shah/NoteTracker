@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../../api/client';
 import ReactMarkdown from 'react-markdown';
-import { Search, Brain, Link as LinkIcon, Clock, ChevronRight, ExternalLink } from 'lucide-react';
+import { Search, Brain, Link as LinkIcon, Clock, ExternalLink } from 'lucide-react';
 
 export default function BrainWiki() {
     const [pages, setPages] = useState<any[]>([]);
