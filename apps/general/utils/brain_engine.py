@@ -1,9 +1,10 @@
 """
-LLM Orchestration Layer for Second Brain (Multimodal + Search enabled).
+LLM Orchestration Layer for Second Brain (Robust JSON + Search).
 """
 import os
 import json
 import logging
+import re
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
@@ -25,17 +26,17 @@ class LLMProvider:
         if not self.api_key:
             raise ValueError(f"Missing API key for {self.provider}")
 
-    def complete(self, system_prompt: str, user_prompt: str, images: List[str] = None, use_search: bool = False) -> str:
+    def complete(self, system_prompt: str, user_prompt: str, images: List[str] = None, use_search: bool = False, force_json: bool = False) -> str:
         """Complete with optional image and search support."""
         if self.provider == "gemini":
-            return self._complete_gemini(system_prompt, user_prompt, images, use_search)
+            return self._complete_gemini(system_prompt, user_prompt, images, use_search, force_json)
         
         if self.provider == "groq":
-            return self._complete_groq(system_prompt, user_prompt)
+            return self._complete_groq(system_prompt, user_prompt, force_json)
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")
 
-    def _complete_groq(self, system_prompt: str, user_prompt: str) -> str:
+    def _complete_groq(self, system_prompt: str, user_prompt: str, force_json: bool = False) -> str:
         try:
             from groq import Groq
             client = Groq(api_key=self.api_key)
@@ -46,22 +47,20 @@ class LLMProvider:
                     {"role": "user", "content": user_prompt}
                 ],
                 temperature=0.1,
-                response_format={"type": "json_object"} if "JSON" in system_prompt else None
+                response_format={"type": "json_object"} if force_json else None
             )
             return completion.choices[0].message.content
         except Exception as e:
             logger.error(f"Groq error: {e}")
-            return f"Error: {str(e)}"
+            return f"API_ERROR: {str(e)}"
 
-    def _complete_gemini(self, system_prompt: str, user_prompt: str, images: List[str] = None, use_search: bool = False) -> str:
+    def _complete_gemini(self, system_prompt: str, user_prompt: str, images: List[str] = None, use_search: bool = False, force_json: bool = False) -> str:
         try:
             import google.generativeai as genai
             genai.configure(api_key=self.api_key)
             
-            # Prepare contents
             contents = [user_prompt]
             
-            # Load and add images if any
             if images:
                 upload_dir = Path(os.getenv("UPLOADS_DIR", "data/uploads"))
                 for img_path in images:
@@ -76,38 +75,63 @@ class LLMProvider:
                         except Exception as ie:
                             logger.warning(f"Failed to load image {img_path}: {ie}")
 
-            # Tools for search
             tools = []
             if use_search:
                 tools.append({"google_search_retrieval": {}})
+
+            config = {}
+            if force_json:
+                config["response_mime_type"] = "application/json"
 
             model = genai.GenerativeModel(
                 model_name=os.getenv("GEMINI_MODEL", "gemini-2.0-flash"),
                 system_instruction=system_prompt,
                 tools=tools
             )
-            response = model.generate_content(contents)
+            response = model.generate_content(contents, generation_config=config)
             return response.text
         except Exception as e:
             logger.error(f"Gemini error: {e}")
-            return f"Error: {str(e)}"
+            return f"API_ERROR: {str(e)}"
 
 class BrainEngine:
     def __init__(self, user_id: int):
         self.user_id = user_id
         self.llm = LLMProvider()
 
+    def _extract_json(self, text: str) -> Optional[Dict]:
+        """Extract JSON from LLM response reliably."""
+        try:
+            # Try direct parse
+            return json.loads(text)
+        except:
+            # Try to find json block
+            match = re.search(r'```json\s*(.*?)\s*```', text, re.DOTALL)
+            if match:
+                try:
+                    return json.loads(match.group(1))
+                except:
+                    pass
+            
+            # Try to find first { and last }
+            start = text.find('{')
+            end = text.rfind('}')
+            if start != -1 and end != -1:
+                try:
+                    return json.loads(text[start:end+1])
+                except:
+                    pass
+        return None
+
     def ingest(self):
-        """Process raw dumps into wiki with multimodal and search support."""
+        """Process raw dumps into wiki."""
         unprocessed = get_unprocessed(self.user_id)
         if not unprocessed:
             return "No raw dumps to process."
 
-        # Build context from existing wiki index
         wiki_index = list_wiki_pages(self.user_id)
         wiki_index_str = json.dumps(wiki_index, indent=2)
 
-        # Collect images
         all_images = []
         for r in unprocessed:
             if r.get('attachments'):
@@ -119,12 +143,10 @@ class BrainEngine:
                 except:
                     pass
 
-        # Build input for LLM
         raw_content = "\n---\n".join([f"ID: {r['id']} - {r['content']}" for r in unprocessed])
         
-        # Enhanced instruction for Search
-        search_instruction = ""
         use_search = os.getenv("BRAIN_ENABLE_SEARCH", "true").lower() == "true"
+        search_instruction = ""
         if use_search:
             search_instruction = "\n\nCRITICAL: You have access to Google Search. If a note mentions a project, company, person, or technical concept that you don't fully know about, SEARCH for it. Use the search results to enrich the wiki pages. Add a '## Web Intelligence' section at the end of the page for external findings and links."
 
@@ -133,15 +155,18 @@ class BrainEngine:
         if all_images:
             user_prompt += f"\n\nAttached {len(all_images)} images for visual analysis."
 
-        # Get LLM response
-        response_str = self.llm.complete(INGEST_SYSTEM_PROMPT, user_prompt, images=all_images, use_search=use_search)
+        # Get LLM response (Force JSON)
+        response_str = self.llm.complete(INGEST_SYSTEM_PROMPT, user_prompt, images=all_images, use_search=use_search, force_json=True)
         
+        if response_str.startswith("API_ERROR"):
+            return response_str
+
+        data = self._extract_json(response_str)
+        if not data:
+            logger.error(f"Failed to parse LLM response: {response_str}")
+            return "Error: LLM returned invalid JSON structure."
+
         try:
-            if response_str.startswith("```json"):
-                response_str = response_str.split("```json")[1].split("```")[0].strip()
-            
-            data = json.loads(response_str)
-            
             for page in data.get("wiki_pages", []):
                 upsert_wiki_page(
                     self.user_id, 
@@ -163,15 +188,11 @@ class BrainEngine:
             log_llm_op("ingest", f"{len(unprocessed)} dumps, {len(all_images)} imgs, search={use_search}", data.get("summary", ""), self.llm.provider)
             return data.get("summary", "Ingestion complete.")
 
-        except json.JSONDecodeError:
-            logger.error(f"Failed to parse LLM response: {response_str}")
-            return "Error: LLM returned invalid JSON."
         except Exception as e:
             logger.error(f"Ingest error: {e}")
-            return f"Error: {str(e)}"
+            return f"Error during processing: {str(e)}"
 
     def query(self, question: str):
-        """Ask your brain a question with search capabilities."""
         all_pages = list_wiki_pages(self.user_id)
         relevant_titles = [p['title'] for p in all_pages if any(word.lower() in p['title'].lower() for word in question.split())]
         
@@ -196,21 +217,24 @@ class BrainEngine:
         return response
 
     def lint(self):
-        """Run a health check on the wiki."""
         all_pages = list_wiki_pages(self.user_id)
         full_wiki = []
         for p in all_pages:
             page = get_wiki_page(self.user_id, p['title'])
-            full_wiki.append({"title": page['title'], "category": page['category'], "content": page['content']})
+            if page:
+                full_wiki.append({"title": page['title'], "category": page['category'], "content": page['content']})
 
         user_prompt = json.dumps(full_wiki)
-        response_str = self.llm.complete(LINT_SYSTEM_PROMPT, user_prompt)
+        response_str = self.llm.complete(LINT_SYSTEM_PROMPT, user_prompt, force_json=True)
+
+        if response_str.startswith("API_ERROR"):
+            return {"error": response_str}
+
+        data = self._extract_json(response_str)
+        if not data:
+            return {"error": "Invalid JSON report"}
 
         try:
-            if response_str.startswith("```json"):
-                response_str = response_str.split("```json")[1].split("```")[0].strip()
-            data = json.loads(response_str)
-            
             report_content = f"## Health Score: {data.get('health_score', 0)}/100\n\n"
             report_content += "### Issues Found\n"
             for issue in data.get("issues", []):
@@ -225,4 +249,4 @@ class BrainEngine:
             return data
         except Exception as e:
             logger.error(f"Lint error: {e}")
-            return f"Error: {str(e)}"
+            return {"error": str(e)}
