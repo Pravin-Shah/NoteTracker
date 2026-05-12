@@ -3,6 +3,7 @@ import Sidebar from './Sidebar';
 import NotesFeed from './NotesFeed';
 import NoteEditor from './NoteEditor';
 import DailyTracker from '../habits/DailyTracker';
+import BrainWiki from './BrainWiki';
 
 export default function NotesLayout() {
     const [selectedNoteId, setSelectedNoteId] = useState<number | null>(null);
@@ -52,8 +53,9 @@ export default function NotesLayout() {
         setSelectedFolder('all');
     };
 
-    // Check if we should show the Daily Tracker
+    // Check if we should show the Daily Tracker or Brain Wiki
     const showDailyTracker = selectedFolder === 'daily-tracker' || selectedFolder === 'health-log';
+    const showBrainWiki = selectedFolder === 'second-brain';
 
     return (
         <div className="flex h-screen bg-[#121212] text-white overflow-hidden">
@@ -71,6 +73,8 @@ export default function NotesLayout() {
             {/* Conditional rendering based on selectedFolder */}
             {showDailyTracker ? (
                 <DailyTracker initialTab={selectedFolder === 'health-log' ? 'reports' : 'today'} />
+            ) : showBrainWiki ? (
+                <BrainWiki />
             ) : (
                 <>
                     {/* B. Feed - Notes List (~320px) */}
