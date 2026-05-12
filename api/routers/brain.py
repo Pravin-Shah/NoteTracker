@@ -5,7 +5,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from typing import List, Optional
 from api.database import execute_query, get_record_by_id
 from api.dependencies import get_current_user
-from apps.general.utils.brain_ops import list_wiki_pages, get_wiki_page, get_links
+from apps.general.utils.brain_ops import list_wiki_pages, get_wiki_page, get_links, delete_wiki_page
 
 router = APIRouter(prefix="/api/brain", tags=["brain"])
 
@@ -32,6 +32,23 @@ async def get_single_wiki_page(
     page['links'] = links
     return page
 
+@router.post("/ingest")
+async def ingest_raw_data(
+    payload: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Ingest raw data into the brain."""
+    from apps.general.utils.brain_ops import save_raw_dump
+    
+    content = payload.get("content")
+    source = payload.get("source", "notetracker")
+    
+    if not content:
+        raise HTTPException(status_code=400, detail="Content is required")
+    
+    dump_id = save_raw_dump(current_user['id'], content, source)
+    return {"status": "success", "id": dump_id}
+
 @router.get("/raw", response_model=List[dict])
 async def get_raw_dumps(
     processed: Optional[bool] = Query(None),
@@ -48,6 +65,16 @@ async def get_raw_dumps(
     
     sql += " ORDER BY created_date DESC"
     return execute_query(sql, tuple(params))
+
+@router.delete("/wiki/{wiki_id}")
+async def remove_wiki_page(
+    wiki_id: int,
+    current_user: dict = Depends(get_current_user)
+):
+    """Delete a wiki page."""
+    # Ensure user owns the page (though currently it's shared, we check the query in brain_ops)
+    delete_wiki_page(wiki_id)
+    return {"status": "deleted"}
 
 @router.get("/stats")
 async def get_brain_stats(current_user: dict = Depends(get_current_user)):

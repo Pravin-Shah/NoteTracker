@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import api from '../../api/client';
 import ReactMarkdown from 'react-markdown';
-import { Search, Brain, Link as LinkIcon, Clock, ExternalLink } from 'lucide-react';
+import { Search, Brain, Link as LinkIcon, Clock, ExternalLink, Trash2 } from 'lucide-react';
 
 export default function BrainWiki() {
     const [pages, setPages] = useState<any[]>([]);
@@ -30,6 +30,20 @@ export default function BrainWiki() {
             setSelectedPage(response.data);
         } catch (error) {
             console.error('Error fetching page details:', error);
+        }
+    };
+
+    const handleDeletePage = async () => {
+        if (!selectedPage) return;
+        if (!confirm(`Are you sure you want to delete "${selectedPage.title}"?`)) return;
+
+        try {
+            await api.delete(`/api/brain/wiki/${selectedPage.id}`);
+            setSelectedPage(null);
+            fetchPages();
+        } catch (error) {
+            console.error('Error deleting page:', error);
+            alert('Failed to delete page');
         }
     };
 
@@ -103,6 +117,13 @@ export default function BrainWiki() {
                             </div>
                             
                             <div className="flex items-center gap-3">
+                                <button
+                                    onClick={handleDeletePage}
+                                    className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded transition-colors"
+                                    title="Delete wiki page"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
                                 <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-[12px] font-medium rounded transition-colors flex items-center gap-2">
                                     <ExternalLink className="w-3 h-3" />
                                     Explore Connections

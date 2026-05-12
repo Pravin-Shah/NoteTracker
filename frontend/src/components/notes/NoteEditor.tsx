@@ -5,6 +5,8 @@ import ImageGallery from './ImageGallery';
 import FileAttachment from './FileAttachment';
 import { useQueryClient } from '@tanstack/react-query';
 import RichTextEditor from './RichTextEditor';
+import api from '../../api/client';
+import { Brain } from 'lucide-react';
 import './tiptap.css';
 
 interface NoteEditorProps {
@@ -171,6 +173,20 @@ export default function NoteEditor({ noteId, isEditing, onEditToggle, onNoteCrea
             onNoteDeleted?.();
         } catch (error) {
             console.error('Failed to permanently delete note:', error);
+        }
+    };
+
+    const handleSendToBrain = async () => {
+        if (!note) return;
+        try {
+            await api.post('/api/brain/ingest', {
+                content: `Title: ${note.title}\n\n${note.content}`,
+                source: 'notetracker'
+            });
+            alert('✅ Sent to Brain for processing!');
+        } catch (error) {
+            console.error('Failed to send to brain:', error);
+            alert('Failed to send to brain');
         }
     };
 
@@ -374,6 +390,16 @@ export default function NoteEditor({ noteId, isEditing, onEditToggle, onNoteCrea
                             className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-[12px] font-medium rounded transition-colors"
                         >
                             {isEditing ? 'View' : 'Edit'}
+                        </button>
+                    )}
+                    {!isCreating && !isEditing && (
+                        <button
+                            onClick={handleSendToBrain}
+                            className="px-4 py-2 bg-[#2a2a2a] hover:bg-[#333] text-blue-400 border border-blue-900/50 text-[12px] font-medium rounded transition-colors flex items-center gap-2"
+                            title="Send this note to your Second Brain for LLM processing"
+                        >
+                            <Brain className="w-3.5 h-3.5" />
+                            Send to Brain
                         </button>
                     )}
                 </div>
