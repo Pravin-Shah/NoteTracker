@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../../api/client';
 import ReactMarkdown from 'react-markdown';
 import { Search, Brain, Link as LinkIcon, Clock, ChevronRight } from 'lucide-react';
 
@@ -15,10 +15,7 @@ export default function BrainWiki() {
 
     const fetchPages = async () => {
         try {
-            const token = localStorage.getItem('token');
-            const response = await axios.get('/api/brain/wiki', {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const response = await api.get('/api/brain/wiki');
             setPages(response.data);
             setLoading(false);
         } catch (error) {
@@ -29,10 +26,7 @@ export default function BrainWiki() {
 
     const fetchPageDetails = async (title: string) => {
         try {
-            const token = localStorage.getItem('token');
-            const response = await axios.get(`/api/brain/wiki/${encodeURIComponent(title)}`, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const response = await api.get(`/api/brain/wiki/${encodeURIComponent(title)}`);
             setSelectedPage(response.data);
         } catch (error) {
             console.error('Error fetching page details:', error);
