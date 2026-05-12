@@ -11,7 +11,15 @@ This plan covers the deployment of recent changes including:
 
 ---
 
-## 🚀 Step 1: Backup Production Database
+## � Step 0: Sync Code (Local Windows)
+1.  Run `git push` on your Windows machine to send changes to GitHub.
+    ```bash
+    git push
+    ```
+
+---
+
+## �🚀 Step 1: Backup Production Database
 **Crucial Step**: Before touching anything, create a backup.
 
 1.  SSH into the server:
