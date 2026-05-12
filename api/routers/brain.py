@@ -38,7 +38,7 @@ async def get_single_wiki_page(
             ids = json.loads(page['source_ids'])
             if ids:
                 # Get raw dumps that were processed
-                sql = f"SELECT id, content, source_type, created_date FROM brain_raw WHERE id IN ({','.join(['?' for _ in ids])})"
+                sql = f"SELECT id, content, source_type, created_date, external_id FROM brain_raw WHERE id IN ({','.join(['?' for _ in ids])})"
                 source_notes = execute_query(sql, tuple(ids))
         except Exception as e:
             print(f"Error fetching source notes: {e}")
