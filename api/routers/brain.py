@@ -50,6 +50,16 @@ async def ingest_raw_data(
     dump_id = save_raw_dump(current_user['id'], content, source, attachments)
     return {"status": "success", "id": dump_id}
 
+@router.post("/run")
+async def run_ingestion(
+    current_user: dict = Depends(get_current_user)
+):
+    """Trigger the BrainEngine ingestion process."""
+    from apps.general.utils.brain_engine import BrainEngine
+    engine = BrainEngine(current_user['id'])
+    summary = engine.ingest()
+    return {"status": "success", "summary": summary}
+
 @router.get("/raw", response_model=List[dict])
 async def get_raw_dumps(
     processed: Optional[bool] = Query(None),

@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import api from '../../api/client';
 import ReactMarkdown from 'react-markdown';
-import { Search, Brain, Link as LinkIcon, Clock, ExternalLink, Trash2 } from 'lucide-react';
+import { Search, Brain, Link as LinkIcon, Clock, ExternalLink, Trash2, Zap, Loader2 } from 'lucide-react';
 
 export default function BrainWiki() {
     const [pages, setPages] = useState<any[]>([]);
     const [selectedPage, setSelectedPage] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [isIngesting, setIsIngesting] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
 
     useEffect(() => {
@@ -44,6 +45,20 @@ export default function BrainWiki() {
         } catch (error) {
             console.error('Error deleting page:', error);
             alert('Failed to delete page');
+        }
+    };
+
+    const handleRunIngestion = async () => {
+        setIsIngesting(true);
+        try {
+            const response = await api.post('/api/brain/run');
+            alert(`✅ ${response.data.summary}`);
+            fetchPages();
+        } catch (error) {
+            console.error('Error running ingestion:', error);
+            alert('Failed to process thoughts');
+        } finally {
+            setIsIngesting(false);
         }
     };
 
@@ -124,7 +139,22 @@ export default function BrainWiki() {
                                 >
                                     <Trash2 className="w-4 h-4" />
                                 </button>
-                                <button className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-[12px] font-medium rounded transition-colors flex items-center gap-2">
+
+                                <button
+                                    onClick={handleRunIngestion}
+                                    disabled={isIngesting}
+                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white text-[12px] font-medium rounded transition-all flex items-center gap-2"
+                                    title="Process raw thoughts into wiki pages"
+                                >
+                                    {isIngesting ? (
+                                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                        <Zap className="w-3.5 h-3.5" />
+                                    )}
+                                    {isIngesting ? 'Processing...' : 'Digest Raw Thoughts'}
+                                </button>
+                                
+                                <button className="px-4 py-2 bg-[#2a2a2a] hover:bg-[#333] text-gray-300 border border-gray-700 text-[12px] font-medium rounded transition-colors flex items-center gap-2">
                                     <ExternalLink className="w-3 h-3" />
                                     Explore Connections
                                 </button>
