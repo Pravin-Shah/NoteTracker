@@ -11,6 +11,7 @@ from api.config import CORS_ORIGINS, UPLOADS_DIR
 from api.routers.notes import router as notes_router
 from api.routers.auth import router as auth_router
 from api.routers.habits import router as habits_router
+from api.routers.brain import router as brain_router
 
 # Create FastAPI app
 app = FastAPI(
@@ -38,6 +39,7 @@ if UPLOADS_DIR.exists():
 app.include_router(notes_router)
 app.include_router(auth_router)
 app.include_router(habits_router)
+app.include_router(brain_router)
 
 
 @app.get("/api/health")
